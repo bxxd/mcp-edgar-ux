@@ -5,7 +5,7 @@ set -e
 
 # Default config
 TRANSPORT="${BITTER_EDGAR_TRANSPORT:-streamable-http}"
-PORT="${BITTER_EDGAR_PORT:-8080}"
+PORT="${BITTER_EDGAR_PORT:-6660}"
 HOST="${BITTER_EDGAR_HOST:-0.0.0.0}"
 CACHE_DIR="${BITTER_EDGAR_CACHE_DIR:-/tmp/sec-filings}"
 LOG_FILE="${BITTER_EDGAR_LOG:-/tmp/bitter-edgar.log}"
