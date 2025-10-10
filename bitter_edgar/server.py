@@ -19,8 +19,12 @@ logging.getLogger("edgar").setLevel(logging.WARNING)
 # Default cache directory (can be overridden via env var or CLI arg)
 CACHE_DIR = Path(os.getenv("BITTER_EDGAR_CACHE_DIR", "/tmp/sec-filings"))
 
-# Initialize MCP server
-mcp = FastMCP("bitter-edgar")
+# Get port from env or default
+HTTP_PORT = int(os.getenv("BITTER_EDGAR_HTTP_PORT", "6660"))
+HTTP_HOST = os.getenv("BITTER_EDGAR_HTTP_HOST", "0.0.0.0")
+
+# Initialize MCP server with HTTP config
+mcp = FastMCP("bitter-edgar", host=HTTP_HOST, port=HTTP_PORT)
 
 
 @mcp.tool()
@@ -96,7 +100,7 @@ def list_cached(ticker: Optional[str] = None, form_type: Optional[str] = None) -
 
 def main():
     """Main entry point for the MCP server."""
-    global CACHE_DIR
+    global CACHE_DIR, mcp
 
     parser = argparse.ArgumentParser(
         description="bitter-edgar: Scale beats cleverness. SEC filings MCP."
@@ -115,8 +119,8 @@ def main():
     parser.add_argument(
         "--port",
         type=int,
-        default=8080,
-        help="Port to bind to for HTTP transport (default: 8080)"
+        default=6660,
+        help="Port to bind to for HTTP transport (default: 6660)"
     )
     parser.add_argument(
         "--cache-dir",
