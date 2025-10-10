@@ -15,6 +15,9 @@ markdownify = "^0.13.0"
 [tool.poetry.scripts]
 bitter-edgar = "bitter_edgar.server:main"
 
+[tool.poetry.group.dev.dependencies]
+watchdog = "^6.0.0"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
