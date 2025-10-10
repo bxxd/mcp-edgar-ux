@@ -1,20 +1,36 @@
-.PHONY: install run-http run-stdio stop test clean
+.PHONY: install start stop restart status logs run-http run-stdio test clean
 
 # Install dependencies
 install:
 	poetry install
 
-# Run HTTP server (for development/iteration)
+# Start as background daemon (HTTP)
+start:
+	./run.sh start
+
+# Stop daemon
+stop:
+	./run.sh stop
+
+# Restart daemon
+restart:
+	./run.sh restart
+
+# Check daemon status
+status:
+	./run.sh status
+
+# Tail logs
+logs:
+	./run.sh logs
+
+# Run HTTP server (foreground, for testing)
 run-http:
 	poetry run bitter-edgar --transport streamable-http --port 8080
 
 # Run stdio (for Claude Code MCP)
 run-stdio:
 	poetry run bitter-edgar --transport stdio
-
-# Stop any running servers
-stop:
-	pkill -f "bitter-edgar" || true
 
 # Test fetch_filing
 test:
