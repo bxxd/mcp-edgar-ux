@@ -4,7 +4,7 @@ bitter-edgar core logic
 Pure functions for fetching, caching, and converting SEC filings.
 No MCP delivery concerns - just the business logic.
 """
-import os
+from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, Any
 from edgar import Company, set_identity
@@ -101,15 +101,48 @@ class EdgarFetcher:
         """Get company by ticker or CIK."""
         return Company(identifier)
 
-    def fetch_latest(self, ticker: str, form_type: str) -> Dict[str, Any]:
-        """Fetch latest filing metadata (no content download)."""
+    def fetch_latest(self, ticker: str, form_type: str, date: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Fetch filing metadata (no content download).
+
+        Args:
+            ticker: Stock ticker
+            form_type: Form type (e.g., "10-K")
+            date: Optional date filter (YYYY-MM-DD). Returns filing closest >= date.
+
+        Returns:
+            Dict with filing metadata
+        """
         company = self.get_company(ticker)
         filings = company.get_filings(form=form_type)
 
         if not filings:
             raise ValueError(f"No {form_type} filings found for {ticker}")
 
-        filing = list(filings)[0]
+        # Filter by date if specified
+        if date:
+            target_date = datetime.strptime(date, '%Y-%m-%d').date()
+            filtered = []
+            for filing in filings:
+                filing_date = filing.filing_date
+                if hasattr(filing_date, 'date'):
+                    filing_date = filing_date.date()
+                elif isinstance(filing_date, str):
+                    filing_date = datetime.strptime(filing_date, '%Y-%m-%d').date()
+
+                # Include filings >= target date
+                if filing_date >= target_date:
+                    filtered.append((filing, filing_date))
+
+            if not filtered:
+                raise ValueError(f"No {form_type} filings found for {ticker} on or after {date}")
+
+            # Sort by date ascending, get closest
+            filtered.sort(key=lambda x: x[1])
+            filing = filtered[0][0]
+        else:
+            # No date filter - get most recent
+            filing = list(filings)[0]
 
         # Format filing date
         filing_date = filing.filing_date
@@ -129,26 +162,32 @@ class EdgarFetcher:
             "sec_url": filing.url
         }
 
-    def download_content(self, filing, format: str = "markdown") -> str:
-        """Download filing content in specified format."""
+    def download_content(self, filing, format: str = "markdown") -> tuple[str, str]:
+        """
+        Download filing content in specified format.
+
+        Returns:
+            Tuple of (content, actual_format) - format may differ if fallback occurs
+        """
         if format == "html":
-            return filing.html()
+            return filing.html(), "html"
         elif format == "markdown":
             try:
                 from markdownify import markdownify as md
                 html_content = filing.html()
-                return md(html_content, heading_style="ATX")
+                return md(html_content, heading_style="ATX"), "markdown"
             except ImportError:
                 # Fallback to text if markdown lib not available
-                return filing.text()
+                return filing.text(), "text"
         else:  # text
-            return filing.text()
+            return filing.text(), "text"
 
 
 def fetch_filing(
     ticker: str,
     form_type: str,
     cache_dir: str = "/tmp/sec-filings",
+    date: Optional[str] = None,
     format: str = "markdown",
     user_agent: str = "breed research breed@idio.sh"
 ) -> Dict[str, Any]:
@@ -161,6 +200,7 @@ def fetch_filing(
         ticker: Stock ticker (e.g., "TSLA", "AAPL")
         form_type: Form type ("10-K", "10-Q", "8-K", etc.)
         cache_dir: Cache directory path
+        date: Optional date filter (YYYY-MM-DD). Returns filing closest >= date.
         format: Output format - "markdown", "text", or "html"
         user_agent: SEC User-Agent identity
 
@@ -171,7 +211,7 @@ def fetch_filing(
     fetcher = EdgarFetcher(user_agent)
 
     # Fetch metadata
-    metadata = fetcher.fetch_latest(ticker, form_type)
+    metadata = fetcher.fetch_latest(ticker, form_type, date)
     filing_date = metadata["filing_date"]
 
     # Check if cached
@@ -193,11 +233,11 @@ def fetch_filing(
             "message": "Already cached. Use Read tool to view."
         }
 
-    # Download content
-    content = fetcher.download_content(metadata["filing"], format)
+    # Download content (may fallback to different format)
+    content, actual_format = fetcher.download_content(metadata["filing"], format)
 
     # Save to cache
-    path = cache.save(ticker, form_type, filing_date, content, format)
+    path = cache.save(ticker, form_type, filing_date, content, actual_format)
 
     return {
         "success": True,
@@ -210,7 +250,7 @@ def fetch_filing(
         "filing_date": filing_date,
         "accession_number": metadata["accession_number"],
         "size_bytes": path.stat().st_size,
-        "format": format,
+        "format": actual_format,
         "sec_url": metadata["sec_url"],
         "message": f"Downloaded {metadata['form_type']} filing. Use Read tool to view: Read('{path}')"
     }

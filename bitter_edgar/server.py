@@ -39,7 +39,7 @@ def fetch_filing(
     Args:
         ticker: Stock ticker (e.g., "TSLA", "AAPL")
         form_type: Form type ("10-K", "10-Q", "8-K", etc.)
-        date: Optional specific date (YYYY-MM-DD), defaults to most recent
+        date: Optional date filter (YYYY-MM-DD). Returns filing closest >= date. Defaults to most recent.
         format: Output format - "markdown" (default), "text", or "html"
 
     Returns:
@@ -49,6 +49,9 @@ def fetch_filing(
         fetch_filing("TSLA", "10-K")
         → {path: "/tmp/sec-filings/TSLA/10-K/2025-01-30.md", ...}
 
+        fetch_filing("TSLA", "10-K", date="2024-01-01")
+        → Returns first 10-K filed on or after 2024-01-01
+
         Then: Read("/tmp/sec-filings/TSLA/10-K/2025-01-30.md")
     """
     try:
@@ -56,6 +59,7 @@ def fetch_filing(
             ticker=ticker,
             form_type=form_type,
             cache_dir=str(CACHE_DIR),
+            date=date,
             format=format
         )
     except Exception as e:
