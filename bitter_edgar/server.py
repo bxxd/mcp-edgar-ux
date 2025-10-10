@@ -17,8 +17,8 @@ logging.getLogger("edgar").setLevel(logging.WARNING)
 # Set SEC User-Agent (required by SEC EDGAR API)
 set_identity("breed research breed@idio.sh")
 
-# Default cache directory
-CACHE_DIR = Path("/tmp/sec-filings")
+# Default cache directory (can be overridden via env var)
+CACHE_DIR = Path(os.getenv("BITTER_EDGAR_CACHE_DIR", "/tmp/sec-filings"))
 
 # Initialize MCP server
 mcp = FastMCP("bitter-edgar")
@@ -244,7 +244,17 @@ def main():
         default=8080,
         help="Port to bind to for HTTP transport (default: 8080)"
     )
+    parser.add_argument(
+        "--cache-dir",
+        default=None,
+        help=f"Cache directory for filings (default: {CACHE_DIR}, or set BITTER_EDGAR_CACHE_DIR env var)"
+    )
     args = parser.parse_args()
+
+    # Override cache dir if specified
+    if args.cache_dir:
+        global CACHE_DIR
+        CACHE_DIR = Path(args.cache_dir)
 
     # Run the server
     if args.transport == "streamable-http":
