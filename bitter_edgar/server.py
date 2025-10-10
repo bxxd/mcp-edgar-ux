@@ -1,7 +1,8 @@
 """
 bitter-edgar MCP Server
 
-Scale beats cleverness. Returns file paths, not content.
+MCP delivery layer - wraps core.py functions as MCP tools.
+Separation of concerns: this file only handles MCP protocol.
 """
 import argparse
 import logging
@@ -9,31 +10,17 @@ import os
 from pathlib import Path
 from typing import Optional
 from mcp.server.fastmcp import FastMCP
-from edgar import Company, set_identity
+from .core import fetch_filing as core_fetch_filing
+from .core import list_cached_filings as core_list_cached
 
 # Suppress INFO logs
 logging.getLogger("edgar").setLevel(logging.WARNING)
 
-# Set SEC User-Agent (required by SEC EDGAR API)
-set_identity("breed research breed@idio.sh")
-
-# Default cache directory (can be overridden via env var)
+# Default cache directory (can be overridden via env var or CLI arg)
 CACHE_DIR = Path(os.getenv("BITTER_EDGAR_CACHE_DIR", "/tmp/sec-filings"))
 
 # Initialize MCP server
 mcp = FastMCP("bitter-edgar")
-
-
-def get_company(identifier: str) -> Company:
-    """Get company by ticker or CIK."""
-    return Company(identifier)
-
-
-def ensure_cache_dir(ticker: str, form_type: str) -> Path:
-    """Ensure cache directory exists for ticker/form."""
-    path = CACHE_DIR / ticker.upper() / form_type.upper()
-    path.mkdir(parents=True, exist_ok=True)
-    return path
 
 
 @mcp.tool()
@@ -65,88 +52,12 @@ def fetch_filing(
         Then: Read("/tmp/sec-filings/TSLA/10-K/2025-01-30.md")
     """
     try:
-        # Get company and filings
-        company = get_company(ticker)
-        filings = company.get_filings(form=form_type)
-
-        if not filings:
-            return {
-                "success": False,
-                "error": f"No {form_type} filings found for {ticker}"
-            }
-
-        # Get the first (most recent) filing
-        filing = list(filings)[0]
-
-        # Ensure cache directory exists
-        cache_dir = ensure_cache_dir(ticker, form_type)
-
-        # Generate filename from filing date
-        filing_date = filing.filing_date
-        if hasattr(filing_date, 'strftime'):
-            date_str = filing_date.strftime('%Y-%m-%d')
-        else:
-            date_str = str(filing_date)
-
-        # Choose file extension based on format
-        ext = {"markdown": ".md", "text": ".txt", "html": ".html"}[format]
-        file_path = cache_dir / f"{date_str}{ext}"
-
-        # Check if already cached
-        if file_path.exists():
-            return {
-                "success": True,
-                "cached": True,
-                "path": str(file_path),
-                "company": company.name,
-                "ticker": ticker.upper(),
-                "cik": filing.cik,
-                "form_type": filing.form,
-                "filing_date": date_str,
-                "accession_number": filing.accession_number,
-                "size_bytes": file_path.stat().st_size,
-                "format": format,
-                "sec_url": filing.url,
-                "message": "Already cached. Use Read tool to view."
-            }
-
-        # Download and convert content
-        if format == "html":
-            content = filing.html()
-        elif format == "markdown":
-            # Convert HTML to markdown
-            try:
-                from markdownify import markdownify as md
-                html_content = filing.html()
-                content = md(html_content, heading_style="ATX")
-            except ImportError:
-                # Fallback to text if markdown lib not available
-                content = filing.text()
-                format = "text"
-                ext = ".txt"
-                file_path = cache_dir / f"{date_str}{ext}"
-        else:
-            content = filing.text()
-
-        # Save to disk
-        file_path.write_text(content, encoding='utf-8')
-
-        return {
-            "success": True,
-            "cached": False,
-            "path": str(file_path),
-            "company": company.name,
-            "ticker": ticker.upper(),
-            "cik": filing.cik,
-            "form_type": filing.form,
-            "filing_date": date_str,
-            "accession_number": filing.accession_number,
-            "size_bytes": file_path.stat().st_size,
-            "format": format,
-            "sec_url": filing.url,
-            "message": f"Downloaded {filing.form} filing. Use Read tool to view: Read('{file_path}')"
-        }
-
+        return core_fetch_filing(
+            ticker=ticker,
+            form_type=form_type,
+            cache_dir=str(CACHE_DIR),
+            format=format
+        )
     except Exception as e:
         return {
             "success": False,
@@ -167,54 +78,11 @@ def list_cached(ticker: Optional[str] = None, form_type: Optional[str] = None) -
         List of cached filings with paths
     """
     try:
-        if not CACHE_DIR.exists():
-            return {
-                "success": True,
-                "filings": [],
-                "count": 0,
-                "disk_usage_mb": 0
-            }
-
-        filings = []
-        total_size = 0
-
-        # Walk cache directory
-        for ticker_dir in CACHE_DIR.iterdir():
-            if not ticker_dir.is_dir():
-                continue
-            if ticker and ticker_dir.name.upper() != ticker.upper():
-                continue
-
-            for form_dir in ticker_dir.iterdir():
-                if not form_dir.is_dir():
-                    continue
-                if form_type and form_dir.name.upper() != form_type.upper():
-                    continue
-
-                for file_path in form_dir.iterdir():
-                    if file_path.is_file() and file_path.suffix in ['.md', '.txt', '.html']:
-                        stat = file_path.stat()
-                        total_size += stat.st_size
-
-                        filings.append({
-                            "ticker": ticker_dir.name,
-                            "form_type": form_dir.name,
-                            "filing_date": file_path.stem,
-                            "path": str(file_path),
-                            "size_bytes": stat.st_size,
-                            "format": file_path.suffix[1:]  # Remove leading dot
-                        })
-
-        # Sort by date descending
-        filings.sort(key=lambda x: x["filing_date"], reverse=True)
-
-        return {
-            "success": True,
-            "filings": filings,
-            "count": len(filings),
-            "disk_usage_mb": round(total_size / 1024 / 1024, 2)
-        }
-
+        return core_list_cached(
+            cache_dir=str(CACHE_DIR),
+            ticker=ticker,
+            form_type=form_type
+        )
     except Exception as e:
         return {
             "success": False,
@@ -224,6 +92,8 @@ def list_cached(ticker: Optional[str] = None, form_type: Optional[str] = None) -
 
 def main():
     """Main entry point for the MCP server."""
+    global CACHE_DIR
+
     parser = argparse.ArgumentParser(
         description="bitter-edgar: Scale beats cleverness. SEC filings MCP."
     )
@@ -253,12 +123,12 @@ def main():
 
     # Override cache dir if specified
     if args.cache_dir:
-        global CACHE_DIR
         CACHE_DIR = Path(args.cache_dir)
 
     # Run the server
     if args.transport == "streamable-http":
         print(f"Starting bitter-edgar on http://{args.host}:{args.port}")
+        print(f"Cache directory: {CACHE_DIR}")
         mcp.run(transport="streamable-http")
     else:
         mcp.run(transport="stdio")
