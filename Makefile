@@ -32,6 +32,10 @@ run-http:
 run-stdio:
 	poetry run bitter-edgar --transport stdio
 
+# Dev mode (auto-restart on file changes)
+dev:
+	poetry run python dev.py
+
 # Test fetch_filing
 test:
 	poetry run python -c "from bitter_edgar.server import fetch_filing; import json; print(json.dumps(fetch_filing('TSLA', '10-K'), indent=2))"
