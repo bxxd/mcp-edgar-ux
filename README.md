@@ -36,6 +36,8 @@ make dev        # Watch for file changes, auto-restart
 
 ### Configure Claude Code
 
+**Option 1: Let Claude Code manage the server (recommended)**
+
 Add to your project's `.claude.json`:
 
 ```json
@@ -44,8 +46,9 @@ Add to your project's `.claude.json`:
     "/your/project/path": {
       "mcpServers": {
         "bitter-edgar": {
-          "url": "http://localhost:8080",
-          "transport": "streamable-http"
+          "command": "poetry",
+          "args": ["run", "bitter-edgar", "--transport", "streamable-http", "--port", "8080"],
+          "cwd": "/path/to/bitter-edgar"
         }
       }
     }
@@ -53,18 +56,33 @@ Add to your project's `.claude.json`:
 }
 ```
 
-Or use the CLI:
+Restart Claude Code and the server will start automatically.
+
+**Option 2: Run server manually**
+
+Start the server in the background:
 
 ```bash
-# Start server
 make start
+```
 
-# In Claude Code (after restart)
+Then configure Claude Code to connect to it (not recommended - use Option 1 instead).
+
+**Usage in Claude Code:**
+
+```bash
+# Fetch a filing
 fetch_filing("TSLA", "10-K")
 → {path: "/tmp/sec-filings/TSLA/10-K/2025-04-30.md", ...}
 
 # Read what you need
 Read("/tmp/sec-filings/TSLA/10-K/2025-04-30.md", offset=1200, limit=50)
+
+# Search for terms
+Grep("supply chain", path="/tmp/sec-filings/TSLA/10-K/2025-04-30.md")
+
+# List cached filings
+list_cached()
 ```
 
 ## Tools
