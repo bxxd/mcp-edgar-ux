@@ -47,7 +47,7 @@ Add to your project's `.claude.json`:
       "mcpServers": {
         "bitter-edgar": {
           "command": "poetry",
-          "args": ["run", "bitter-edgar", "--transport", "streamable-http", "--port", "8080"],
+          "args": ["run", "bitter-edgar", "--transport", "streamable-http", "--port", "6660"],
           "cwd": "/path/to/bitter-edgar"
         }
       }
