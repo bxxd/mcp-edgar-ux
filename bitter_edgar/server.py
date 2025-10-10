@@ -32,7 +32,7 @@ def fetch_filing(
     ticker: str,
     form_type: str,
     date: Optional[str] = None,
-    format: str = "markdown"
+    format: str = "text"
 ) -> dict:
     """
     Download SEC filing to disk, return path.
@@ -44,19 +44,19 @@ def fetch_filing(
         ticker: Stock ticker (e.g., "TSLA", "AAPL")
         form_type: Form type ("10-K", "10-Q", "8-K", etc.)
         date: Optional date filter (YYYY-MM-DD). Returns filing closest >= date. Defaults to most recent.
-        format: Output format - "markdown" (default), "text", or "html"
+        format: Output format - "text" (default, clean), "markdown" (may have XBRL), or "html"
 
     Returns:
         Dictionary with file path and metadata. Use Read/Grep/Bash on the path.
 
     Example:
         fetch_filing("TSLA", "10-K")
-        → {path: "/tmp/sec-filings/TSLA/10-K/2025-01-30.md", ...}
+        → {path: "/tmp/sec-filings/TSLA/10-K/2025-01-30.txt", ...}
 
         fetch_filing("TSLA", "10-K", date="2024-01-01")
         → Returns first 10-K filed on or after 2024-01-01
 
-        Then: Read("/tmp/sec-filings/TSLA/10-K/2025-01-30.md")
+        Then: Read("/tmp/sec-filings/TSLA/10-K/2025-01-30.txt")
     """
     try:
         return core_fetch_filing(

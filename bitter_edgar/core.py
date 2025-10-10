@@ -172,12 +172,30 @@ class EdgarFetcher:
         if format == "html":
             return filing.html(), "html"
         elif format == "markdown":
+            # Markdown is just cleaned HTML rendered with markdownify
+            # BeautifulSoup handles XBRL/XML stripping
             try:
                 from markdownify import markdownify as md
+                from bs4 import BeautifulSoup
+
                 html_content = filing.html()
-                return md(html_content, heading_style="ATX"), "markdown"
+                soup = BeautifulSoup(html_content, 'lxml')
+
+                # Remove all XBRL/iXBRL tags (tags with namespace prefix like ix:, us-gaap:, etc)
+                # These are hidden metadata inside <body>
+                for tag in soup.find_all():
+                    if ':' in tag.name:
+                        tag.decompose()
+
+                # Get body
+                body = soup.find('body')
+                if body:
+                    return md(str(body), heading_style="ATX"), "markdown"
+                else:
+                    # Fallback to edgartools text() if no body
+                    return filing.text(), "text"
             except ImportError:
-                # Fallback to text if markdown lib not available
+                # Fallback to text if libs not available
                 return filing.text(), "text"
         else:  # text
             return filing.text(), "text"
@@ -188,7 +206,7 @@ def fetch_filing(
     form_type: str,
     cache_dir: str = "/tmp/sec-filings",
     date: Optional[str] = None,
-    format: str = "markdown",
+    format: str = "text",
     user_agent: str = "breed research breed@idio.sh"
 ) -> Dict[str, Any]:
     """
@@ -196,12 +214,14 @@ def fetch_filing(
 
     Pure function - no global state.
 
+    The Bitter Lesson: Use text format (scales), not markdown (clever but brittle).
+
     Args:
         ticker: Stock ticker (e.g., "TSLA", "AAPL")
         form_type: Form type ("10-K", "10-Q", "8-K", etc.)
         cache_dir: Cache directory path
         date: Optional date filter (YYYY-MM-DD). Returns filing closest >= date.
-        format: Output format - "markdown", "text", or "html"
+        format: Output format - "text" (default), "markdown", or "html"
         user_agent: SEC User-Agent identity
 
     Returns:

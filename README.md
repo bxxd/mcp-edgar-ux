@@ -36,9 +36,31 @@ make dev        # Watch for file changes, auto-restart
 
 ### Configure Claude Code
 
-**Option 1: Let Claude Code manage the server (recommended)**
+**Option 1: Standalone executable (recommended)**
 
-Add to your project's `.claude.json`:
+Use the provided `bitter-edgar-mcp` executable for easy setup:
+
+```json
+{
+  "projects": {
+    "/your/project/path": {
+      "mcpServers": {
+        "bitter-edgar": {
+          "command": "/path/to/bitter-edgar/bitter-edgar-mcp"
+        }
+      }
+    }
+  }
+}
+```
+
+Or add via Claude Code UI: Settings → MCP → Add Server → Command: `/path/to/bitter-edgar/bitter-edgar-mcp`
+
+Restart Claude Code and the server will start automatically.
+
+**Option 2: Using Poetry directly**
+
+If you prefer to use Poetry:
 
 ```json
 {
@@ -47,7 +69,7 @@ Add to your project's `.claude.json`:
       "mcpServers": {
         "bitter-edgar": {
           "command": "poetry",
-          "args": ["run", "bitter-edgar", "--transport", "streamable-http", "--port", "6660"],
+          "args": ["run", "bitter-edgar"],
           "cwd": "/path/to/bitter-edgar"
         }
       }
@@ -56,30 +78,29 @@ Add to your project's `.claude.json`:
 }
 ```
 
-Restart Claude Code and the server will start automatically.
+**Option 3: Background HTTP server**
 
-**Option 2: Run server manually**
-
-Start the server in the background:
+For advanced use cases (multiple clients, debugging without restart):
 
 ```bash
-make start
+make start      # Start server on http://localhost:6660
+make status     # Check if running
 ```
 
-Then configure Claude Code to connect to it (not recommended - use Option 1 instead).
+Then configure Claude Code with HTTP transport (see docs).
 
 **Usage in Claude Code:**
 
 ```bash
 # Fetch a filing
 fetch_filing("TSLA", "10-K")
-→ {path: "/tmp/sec-filings/TSLA/10-K/2025-04-30.md", ...}
+→ {path: "/tmp/sec-filings/TSLA/10-K/2025-04-30.txt", ...}
 
 # Read what you need
-Read("/tmp/sec-filings/TSLA/10-K/2025-04-30.md", offset=1200, limit=50)
+Read("/tmp/sec-filings/TSLA/10-K/2025-04-30.txt", offset=1200, limit=50)
 
 # Search for terms
-Grep("supply chain", path="/tmp/sec-filings/TSLA/10-K/2025-04-30.md")
+Grep("supply chain", path="/tmp/sec-filings/TSLA/10-K/2025-04-30.txt")
 
 # List cached filings
 list_cached()
@@ -87,7 +108,7 @@ list_cached()
 
 ## Tools
 
-### `fetch_filing(ticker, form_type, date=None, format="markdown")`
+### `fetch_filing(ticker, form_type, date=None, format="text")`
 
 Download SEC filing to disk, return path.
 
@@ -95,18 +116,19 @@ Download SEC filing to disk, return path.
 - `ticker`: Stock ticker (e.g., "TSLA", "AAPL")
 - `form_type`: Form type ("10-K", "10-Q", "8-K", etc.)
 - `date`: Optional date filter (YYYY-MM-DD). Returns filing closest >= date.
-- `format`: Output format - "markdown" (default), "text", or "html"
+- `format`: Output format - "text" (default, clean), "markdown" (may have XBRL), or "html"
 
 **Returns:**
 ```json
 {
   "success": true,
-  "path": "/tmp/sec-filings/TSLA/10-K/2025-04-30.md",
+  "path": "/tmp/sec-filings/TSLA/10-K/2025-04-30.txt",
   "company": "Tesla, Inc.",
   "ticker": "TSLA",
   "form_type": "10-K",
   "filing_date": "2025-04-30",
-  "size_bytes": 247217,
+  "format": "text",
+  "size_bytes": 427000,
   "sec_url": "https://...",
   "cached": false
 }
@@ -114,14 +136,14 @@ Download SEC filing to disk, return path.
 
 **Examples:**
 ```python
-# Latest filing
+# Latest filing (text format, clean)
 fetch_filing("TSLA", "10-K")
 
 # Filing on or after specific date
 fetch_filing("TSLA", "10-K", date="2024-01-01")
 
-# HTML format
-fetch_filing("AAPL", "10-Q", format="html")
+# Markdown format (may contain XBRL artifacts)
+fetch_filing("AAPL", "10-Q", format="markdown")
 ```
 
 ### `list_cached(ticker=None, form_type=None)`
@@ -166,14 +188,14 @@ List filings cached on disk.
 ```bash
 # 1. Fetch Tesla's latest 10-K
 fetch_filing("TSLA", "10-K")
-→ /tmp/sec-filings/TSLA/10-K/2025-04-30.md (247KB)
+→ /tmp/sec-filings/TSLA/10-K/2025-04-30.txt (427KB, clean text)
 
 # 2. Search for supply chain mentions
-Grep("supply chain", path="/tmp/sec-filings/TSLA/10-K/2025-04-30.md")
+Grep("supply chain", path="/tmp/sec-filings/TSLA/10-K/2025-04-30.txt")
 → 12 matches, lines [1234, 2456, ...]
 
 # 3. Read specific section
-Read("/tmp/sec-filings/TSLA/10-K/2025-04-30.md", offset=1200, limit=50)
+Read("/tmp/sec-filings/TSLA/10-K/2025-04-30.txt", offset=1200, limit=50)
 → Only 50 lines in context (not 241K tokens)
 
 # 4. Analyze
