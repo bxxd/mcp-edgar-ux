@@ -1,4 +1,4 @@
-# edgar-lite-mcp
+# edgar-ux-mcp
 
 *Scale beats cleverness. Save to disk, read what you need.*
 
@@ -38,15 +38,15 @@ make dev        # Watch for file changes, auto-restart
 
 **Option 1: Standalone executable (recommended)**
 
-Use the provided `edgar-lite-mcp-mcp` executable for easy setup:
+Use the provided `edgar-ux-mcp-mcp` executable for easy setup:
 
 ```json
 {
   "projects": {
     "/your/project/path": {
       "mcpServers": {
-        "edgar-lite-mcp": {
-          "command": "/path/to/edgar-lite-mcp/edgar-lite-mcp-mcp"
+        "edgar-ux-mcp": {
+          "command": "/path/to/edgar-ux-mcp/edgar-ux-mcp-mcp"
         }
       }
     }
@@ -54,7 +54,7 @@ Use the provided `edgar-lite-mcp-mcp` executable for easy setup:
 }
 ```
 
-Or add via Claude Code UI: Settings → MCP → Add Server → Command: `/path/to/edgar-lite-mcp/edgar-lite-mcp-mcp`
+Or add via Claude Code UI: Settings → MCP → Add Server → Command: `/path/to/edgar-ux-mcp/edgar-ux-mcp-mcp`
 
 Restart Claude Code and the server will start automatically.
 
@@ -67,10 +67,10 @@ If you prefer to use Poetry:
   "projects": {
     "/your/project/path": {
       "mcpServers": {
-        "edgar-lite-mcp": {
+        "edgar-ux-mcp": {
           "command": "poetry",
-          "args": ["run", "edgar-lite-mcp"],
-          "cwd": "/path/to/edgar-lite-mcp"
+          "args": ["run", "edgar-ux-mcp"],
+          "cwd": "/path/to/edgar-ux-mcp"
         }
       }
     }
@@ -238,12 +238,12 @@ make clean
 
 **Separation of concerns:**
 
-- `edgar_lite_mcp/core.py` - Pure business logic
+- `edgar_ux_mcp/core.py` - Pure business logic
   - `FilingCache` class (disk management)
   - `EdgarFetcher` class (SEC API)
   - Pure functions (no global state)
 
-- `edgar_lite_mcp/server.py` - MCP delivery
+- `edgar_ux_mcp/server.py` - MCP delivery
   - MCP tool decorators
   - Transport config (stdio/HTTP)
   - Thin wrapper around core

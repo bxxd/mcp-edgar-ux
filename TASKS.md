@@ -1,4 +1,4 @@
-# edgar-lite-mcp MCP Development Tasks
+# edgar-ux-mcp MCP Development Tasks
 
 ## Design Goals
 

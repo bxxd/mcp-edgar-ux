@@ -1,4 +1,4 @@
-# edgar-lite-mcp MCP - Developer Context
+# edgar-ux-mcp MCP - Developer Context
 
 MCP server for SEC EDGAR filings with Bloomberg Terminal-inspired formatted output.
 
@@ -54,12 +54,12 @@ Python 3.11+
 ### Project Structure
 
 ```
-edgar-lite-mcp/
-├── edgar_lite_mcp/
+edgar-ux-mcp/
+├── edgar_ux_mcp/
 │   ├── core.py          → Pure async business logic (fetch, search, list)
 │   ├── server_http.py   → MCP HTTP/SSE server (Starlette)
 │   └── cli.py           → CLI for testing tools (no MCP restart needed)
-├── cli                  → Wrapper script (poetry run python -m edgar_lite_mcp.cli)
+├── cli                  → Wrapper script (poetry run python -m edgar_ux_mcp.cli)
 ├── dev.py               → Dev mode with auto-restart (watchdog)
 ├── TASKS.md             → Implementation roadmap (Phases 1-7)
 ├── DEVELOPER.md         → This file
@@ -183,13 +183,13 @@ make kill                               # Stop server
 
 **2. Test MCP server** (via stdio transport):
 ```bash
-poetry run python -m edgar_lite_mcp.server --transport stdio
+poetry run python -m edgar_ux_mcp.server --transport stdio
 # Test with MCP inspector or Claude Code
 ```
 
 **3. Test HTTP/SSE server** (for web integration):
 ```bash
-poetry run uvicorn edgar_lite_mcp.server_http:app --host 127.0.0.1 --port 5002
+poetry run uvicorn edgar_ux_mcp.server_http:app --host 127.0.0.1 --port 5002
 curl http://127.0.0.1:5002/health
 ```
 
@@ -198,13 +198,13 @@ curl http://127.0.0.1:5002/health
 **Before committing**:
 ```bash
 # Format
-poetry run black edgar_lite_mcp/
+poetry run black edgar_ux_mcp/
 
 # Type check
-poetry run mypy edgar_lite_mcp/
+poetry run mypy edgar_ux_mcp/
 
 # Lint
-poetry run ruff check edgar_lite_mcp/
+poetry run ruff check edgar_ux_mcp/
 ```
 
 ### Cache Configuration
@@ -414,9 +414,9 @@ print(f"[DEBUG] Completed: {result}", flush=True)
 ## Key Files
 
 **Core Implementation**:
-- `edgar_lite_mcp/core.py` - Business logic (fetch, search, list)
-- `edgar_lite_mcp/server_http.py` - MCP HTTP/SSE server
-- `edgar_lite_mcp/cli.py` - CLI for testing
+- `edgar_ux_mcp/core.py` - Business logic (fetch, search, list)
+- `edgar_ux_mcp/server_http.py` - MCP HTTP/SSE server
+- `edgar_ux_mcp/cli.py` - CLI for testing
 
 **Documentation**:
 - `TASKS.md` - Implementation roadmap (7 phases)
