@@ -5,7 +5,7 @@ Tests the MCP server layer (tool wrappers, not full MCP protocol).
 """
 import pytest
 from unittest.mock import patch, MagicMock
-from bitter_edgar.server import fetch_filing, list_cached
+from edgar_lite_mcp.server import fetch_filing, list_cached
 
 
 class TestFetchFilingTool:

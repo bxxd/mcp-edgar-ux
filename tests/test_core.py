@@ -7,7 +7,7 @@ import pytest
 from pathlib import Path
 from datetime import datetime
 from unittest.mock import Mock, patch, MagicMock
-from bitter_edgar.core import FilingCache, EdgarFetcher, fetch_filing, list_cached_filings
+from edgar_lite_mcp.core import FilingCache, EdgarFetcher, fetch_filing, list_cached_filings
 
 
 class TestFilingCache:

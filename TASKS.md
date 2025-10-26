@@ -1,4 +1,4 @@
-# bitter-edgar MCP Development Tasks
+# edgar-lite-mcp MCP Development Tasks
 
 ## Design Goals
 

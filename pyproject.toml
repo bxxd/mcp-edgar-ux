@@ -1,10 +1,10 @@
 [tool.poetry]
-name = "bitter-edgar"
+name = "edgar-lite-mcp"
 version = "0.1.0"
-description = "Scale beats cleverness. SEC filings MCP that saves to disk."
+description = "SEC EDGAR filings MCP server with formatted output. Caches to disk, progressive disclosure."
 authors = ["bxxd <bxxd@users.noreply.github.com>"]
 readme = "README.md"
-packages = [{include = "bitter_edgar"}]
+packages = [{include = "edgar_lite_mcp"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -13,7 +13,7 @@ edgartools = "^4.0.0"
 markdownify = "^0.13.0"
 
 [tool.poetry.scripts]
-bitter-edgar = "bitter_edgar.server:main"
+edgar-lite-mcp = "edgar_lite_mcp.server:main"
 
 [tool.poetry.group.dev.dependencies]
 watchdog = "^6.0.0"

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Dev mode runner for bitter-edgar
+Dev mode runner for edgar-lite-mcp
 
 Watches for file changes and auto-restarts server.
 """
@@ -28,7 +28,7 @@ class ServerRestartHandler(FileSystemEventHandler):
 
         print("Starting server...")
         self.process = subprocess.Popen(
-            ["poetry", "run", "bitter-edgar", "--transport", "streamable-http", "--port", "8080"],
+            ["poetry", "run", "edgar-lite-mcp", "--transport", "streamable-http", "--port", "8080"],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -53,13 +53,13 @@ class ServerRestartHandler(FileSystemEventHandler):
 
 def main():
     """Run dev server with auto-restart."""
-    print("bitter-edgar dev mode")
+    print("edgar-lite-mcp dev mode")
     print("Ctrl+C to stop\n")
 
     # Set up file watcher
     handler = ServerRestartHandler()
     observer = Observer()
-    observer.schedule(handler, str(Path("bitter_edgar")), recursive=True)
+    observer.schedule(handler, str(Path("edgar_lite_mcp")), recursive=True)
     observer.start()
 
     try:

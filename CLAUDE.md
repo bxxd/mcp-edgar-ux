@@ -1,4 +1,4 @@
-# CLAUDE.md - bitter-edgar MCP Context
+# CLAUDE.md - edgar-lite-mcp MCP Context
 
 MCP server for SEC EDGAR filings with BBG Lite formatted output.
 
@@ -50,8 +50,8 @@ make logs                         # Tail server logs
 **Key Files**:
 - `DEVELOPER.md` - Complete architecture and patterns
 - `TASKS.md` - 7-phase implementation roadmap
-- `bitter_edgar/core.py` - Pure async business logic
-- `bitter_edgar/server_http.py` - MCP HTTP/SSE server
-- `bitter_edgar/cli.py` - CLI for testing
+- `edgar_lite_mcp/core.py` - Pure async business logic
+- `edgar_lite_mcp/server_http.py` - MCP HTTP/SSE server
+- `edgar_lite_mcp/cli.py` - CLI for testing
 
-**Note**: Package currently named `bitter_edgar` (philosophical reference to "The Bitter Lesson"). Consider renaming to `edgar_mcp` for clarity.
+**Note**: Package currently named `edgar_lite_mcp` (philosophical reference to "The Bitter Lesson"). Consider renaming to `edgar_mcp` for clarity.
