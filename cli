@@ -1,0 +1,4 @@
+#!/bin/bash
+# Wrapper to hide poetry run - just call ./cli instead
+cd "$(dirname "$0")"
+poetry run python -m bitter_edgar.cli "$@"

@@ -1,49 +1,124 @@
-.PHONY: install start stop restart status logs run-http run-stdio test clean
+.PHONY: help test lint lint-fix mypy ruff stdio run server logs clean all
 
-# Install dependencies
-install:
-	poetry install
+# Load configuration from .env (create from .env.example if missing)
+-include .env
+export
 
-# Start as background daemon (HTTP)
-start:
-	./run.sh start
+# Default configuration (fallback if .env not present)
+PORT ?= 5002
+CACHE_DIR ?= /var/idio-mcp-cache/sec-filings
 
-# Stop daemon
-stop:
-	./run.sh stop
+# Default target - show help
+help:
+	@echo "bitter-edgar development commands:"
+	@echo ""
+	@echo "  make test       - Run all tests"
+	@echo "  make lint       - Run type checking (mypy) and linting (ruff)"
+	@echo "  make lint-fix   - Auto-fix linting issues where possible"
+	@echo "  make mypy       - Run mypy type checking only"
+	@echo "  make ruff       - Run ruff linting only"
+	@echo "  make stdio      - Run MCP server (stdio mode for Claude Code)"
+	@echo "  make run        - Run MCP HTTP server (alias for make server)"
+	@echo "  make server     - Run MCP HTTP server (graceful restart, port $(PORT))"
+	@echo "  make logs       - Tail server logs (logs/server.log)"
+	@echo "  make clean      - Remove Python cache files and temp cache"
+	@echo "  make all        - Run lint + test (use before committing)"
+	@echo ""
+	@echo "Configuration:"
+	@echo "  PORT=$(PORT)"
+	@echo "  CACHE_DIR=$(CACHE_DIR)"
+	@echo ""
+	@echo "Before committing, ALWAYS run: make all"
 
-# Restart daemon
-restart:
-	./run.sh restart
-
-# Check daemon status
-status:
-	./run.sh status
-
-# Tail logs
-logs:
-	./run.sh logs
-
-# Run HTTP server (foreground, for testing)
-run-http:
-	poetry run bitter-edgar --transport streamable-http --port 8080
-
-# Run stdio (for Claude Code MCP)
-run-stdio:
-	poetry run bitter-edgar --transport stdio
-
-# Dev mode (auto-restart on file changes)
-dev:
-	poetry run python dev.py
-
-# Test fetch_filing
+# Run all tests
 test:
-	poetry run python -c "from bitter_edgar.server import fetch_filing; import json; print(json.dumps(fetch_filing('TSLA', '10-K'), indent=2))"
+	@echo "Running tests..."
+	@poetry run python tests/test_core.py
 
-# Clean cache
+# Run type checking only
+mypy:
+	@echo "Running mypy type checker..."
+	@poetry run mypy bitter_edgar/
+
+# Run linting only
+ruff:
+	@echo "Running ruff linter..."
+	@poetry run ruff check bitter_edgar/
+
+# Run both type checking and linting
+lint: mypy ruff
+	@echo "✓ All checks passed!"
+
+# Auto-fix linting issues and run checks
+lint-fix:
+	@echo "Auto-fixing linting issues..."
+	@poetry run ruff check --fix bitter_edgar/
+	@echo ""
+	@$(MAKE) lint
+
+# Run MCP server via stdio (for Claude Code)
+stdio:
+	@echo "Starting MCP server (stdio mode)..." >&2
+	@echo "Press Ctrl+C to stop" >&2
+	@CACHE_DIR=$(CACHE_DIR) poetry run python -m bitter_edgar.server
+
+# Run MCP HTTP server (alias for server)
+run: server
+
+# Run MCP HTTP server (for web integration)
+# Uses PID file to track and kill previous server instances
+server:
+	@mkdir -p logs
+	@# Kill process from PID file if exists
+	@if [ -f logs/server.pid ]; then \
+		OLD_PID=$$(cat logs/server.pid); \
+		if ps -p $$OLD_PID > /dev/null 2>&1; then \
+			echo "Killing previous server (PID $$OLD_PID)..." >&2; \
+			kill $$OLD_PID 2>/dev/null || true; \
+			sleep 1; \
+			if ps -p $$OLD_PID > /dev/null 2>&1; then \
+				echo "Force killing..." >&2; \
+				kill -9 $$OLD_PID 2>/dev/null || true; \
+				sleep 1; \
+			fi; \
+		fi; \
+	fi
+	@# Also kill any process listening on the port (catch orphans)
+	@if lsof -ti:$(PORT) -sTCP:LISTEN > /dev/null 2>&1; then \
+		PORT_PID=$$(lsof -ti:$(PORT) -sTCP:LISTEN); \
+		echo "Killing process on port $(PORT) (PID $$PORT_PID)..." >&2; \
+		kill -9 $$PORT_PID 2>/dev/null || true; \
+		sleep 1; \
+	fi
+	@echo "Starting MCP HTTP server on http://127.0.0.1:$(PORT) (logs/server.log)..." >&2
+	@nohup poetry run env PORT=$(PORT) CACHE_DIR=$(CACHE_DIR) uvicorn bitter_edgar.server_http:app --host 127.0.0.1 --port $(PORT) > logs/server.log 2>&1 & echo $$! > logs/server.pid
+	@# Wait for server to be ready (up to 10 seconds)
+	@for i in 1 2 3 4 5 6 7 8 9 10; do \
+		if curl -s -f http://127.0.0.1:$(PORT)/ping > /dev/null 2>&1; then \
+			echo "Server ready on port $(PORT) (PID $$(cat logs/server.pid))"; \
+			echo "Cache directory: $(CACHE_DIR)"; \
+			exit 0; \
+		fi; \
+		sleep 1; \
+	done; \
+	echo "Warning: Server may not be ready yet (PID $$(cat logs/server.pid))"
+
+# Tail server logs
+logs:
+	@tail -f logs/server.log
+
+# Clean Python cache files and temp cache
 clean:
-	rm -rf /tmp/sec-filings
+	@echo "Cleaning Python cache files..."
+	@find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	@find . -type f -name "*.pyc" -delete
+	@find . -type f -name "*.pyo" -delete
+	@find . -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
+	@echo "Cleaning temp cache..."
+	@rm -rf /tmp/sec-filings-test 2>/dev/null || true
+	@echo "✓ Cleaned"
 
-# Show cache contents
-show-cache:
-	ls -lhR /tmp/sec-filings || echo "Cache empty"
+# Run everything (use before committing)
+all: lint test
+	@echo ""
+	@echo "✓ All checks passed - ready to commit!"

@@ -1,9 +1,10 @@
 """
 bitter-edgar core logic
 
-Pure functions for fetching, caching, and converting SEC filings.
+Pure async functions for fetching, caching, and converting SEC filings.
 No MCP delivery concerns - just the business logic.
 """
+import asyncio
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, Any
@@ -100,6 +101,46 @@ class EdgarFetcher:
     def get_company(self, identifier: str) -> Company:
         """Get company by ticker or CIK."""
         return Company(identifier)
+
+    def list_available(self, ticker: str, form_type: str) -> list[Dict[str, Any]]:
+        """
+        List all available filings from SEC (no content download).
+
+        Args:
+            ticker: Stock ticker
+            form_type: Form type (e.g., "10-K")
+
+        Returns:
+            List of filing metadata dicts (sorted by date descending)
+        """
+        company = self.get_company(ticker)
+        filings = company.get_filings(form=form_type)
+
+        if not filings:
+            return []
+
+        result = []
+        for filing in filings:
+            # Format filing date
+            filing_date = filing.filing_date
+            if hasattr(filing_date, 'strftime'):
+                date_str = filing_date.strftime('%Y-%m-%d')
+            elif hasattr(filing_date, 'date'):
+                date_str = filing_date.date().strftime('%Y-%m-%d')
+            else:
+                date_str = str(filing_date)
+
+            result.append({
+                "ticker": ticker.upper(),
+                "form_type": filing.form,
+                "filing_date": date_str,
+                "accession_number": filing.accession_number,
+                "sec_url": filing.url
+            })
+
+        # Sort by date descending (most recent first)
+        result.sort(key=lambda x: x["filing_date"], reverse=True)
+        return result
 
     def fetch_latest(self, ticker: str, form_type: str, date: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -201,16 +242,40 @@ class EdgarFetcher:
             return filing.text(), "text"
 
 
-def fetch_filing(
+def _read_preview(path: Path, num_lines: int) -> tuple[list[str], int]:
+    """
+    Read first N lines from file with line numbers.
+
+    Returns:
+        Tuple of (preview_lines, total_lines)
+    """
+    preview = []
+    total = 0
+
+    try:
+        with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+            for i, line in enumerate(f, 1):
+                total = i
+                if i <= num_lines:
+                    # Format with line number (like Read tool)
+                    preview.append(f"{i:6}→{line.rstrip()}")
+
+        return preview, total
+    except Exception:
+        return [], 0
+
+
+async def fetch_filing(
     ticker: str,
     form_type: str,
     cache_dir: str = "/tmp/sec-filings",
     date: Optional[str] = None,
     format: str = "text",
+    preview_lines: int = 50,
     user_agent: str = "breed research breed@idio.sh"
 ) -> Dict[str, Any]:
     """
-    Fetch SEC filing and save to cache.
+    Fetch SEC filing and save to cache (async).
 
     Pure function - no global state.
 
@@ -222,22 +287,30 @@ def fetch_filing(
         cache_dir: Cache directory path
         date: Optional date filter (YYYY-MM-DD). Returns filing closest >= date.
         format: Output format - "text" (default), "markdown", or "html"
+        preview_lines: Number of lines to include in preview (default: 50, 0 to disable)
         user_agent: SEC User-Agent identity
 
     Returns:
-        Dict with file path and metadata
+        Dict with file path, metadata, and optional preview
     """
     cache = FilingCache(cache_dir)
     fetcher = EdgarFetcher(user_agent)
 
-    # Fetch metadata
-    metadata = fetcher.fetch_latest(ticker, form_type, date)
+    # Fetch metadata (edgartools is sync, run in thread pool)
+    metadata = await asyncio.to_thread(fetcher.fetch_latest, ticker, form_type, date)
     filing_date = metadata["filing_date"]
 
     # Check if cached
     if cache.is_cached(ticker, form_type, filing_date, format):
         path = cache.get_path(ticker, form_type, filing_date, format)
-        return {
+
+        # Read preview if requested (async file I/O)
+        preview = []
+        total_lines = None
+        if preview_lines > 0:
+            preview, total_lines = await asyncio.to_thread(_read_preview, path, preview_lines)
+
+        result = {
             "success": True,
             "cached": True,
             "path": str(path),
@@ -253,13 +326,27 @@ def fetch_filing(
             "message": "Already cached. Use Read tool to view."
         }
 
-    # Download content (may fallback to different format)
-    content, actual_format = fetcher.download_content(metadata["filing"], format)
+        if preview:
+            result["preview"] = preview
+            result["total_lines"] = total_lines
 
-    # Save to cache
-    path = cache.save(ticker, form_type, filing_date, content, actual_format)
+        return result
 
-    return {
+    # Download content (may fallback to different format) - run in thread pool
+    content, actual_format = await asyncio.to_thread(
+        fetcher.download_content, metadata["filing"], format
+    )
+
+    # Save to cache - run in thread pool (file I/O)
+    path = await asyncio.to_thread(cache.save, ticker, form_type, filing_date, content, actual_format)
+
+    # Read preview if requested (async file I/O)
+    preview = []
+    total_lines = None
+    if preview_lines > 0:
+        preview, total_lines = await asyncio.to_thread(_read_preview, path, preview_lines)
+
+    result = {
         "success": True,
         "cached": False,
         "path": str(path),
@@ -275,14 +362,20 @@ def fetch_filing(
         "message": f"Downloaded {metadata['form_type']} filing. Use Read tool to view: Read('{path}')"
     }
 
+    if preview:
+        result["preview"] = preview
+        result["total_lines"] = total_lines
 
-def list_cached_filings(
+    return result
+
+
+async def list_cached_filings(
     cache_dir: str = "/tmp/sec-filings",
     ticker: Optional[str] = None,
     form_type: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    List cached SEC filings.
+    List cached SEC filings (async).
 
     Pure function - no global state.
 
@@ -295,8 +388,10 @@ def list_cached_filings(
         Dict with list of cached filings
     """
     cache = FilingCache(cache_dir)
-    filings = cache.list_cached(ticker, form_type)
-    disk_usage = cache.get_disk_usage()
+
+    # Run file I/O in thread pool
+    filings = await asyncio.to_thread(cache.list_cached, ticker, form_type)
+    disk_usage = await asyncio.to_thread(cache.get_disk_usage)
 
     return {
         "success": True,
@@ -304,3 +399,223 @@ def list_cached_filings(
         "count": len(filings),
         "disk_usage_mb": round(disk_usage / 1024 / 1024, 2)
     }
+
+
+async def list_filings(
+    ticker: str,
+    form_type: str,
+    cache_dir: str = "/tmp/sec-filings",
+    user_agent: str = "breed research breed@idio.sh"
+) -> Dict[str, Any]:
+    """
+    List all filings for ticker/form (both cached + available from SEC) - async.
+
+    Shows which filings are cached locally vs. available for download.
+
+    Args:
+        ticker: Stock ticker
+        form_type: Form type (e.g., "10-K", "10-Q")
+        cache_dir: Cache directory path
+        user_agent: SEC User-Agent identity
+
+    Returns:
+        Dict with combined list of filings (cached + available)
+    """
+    cache = FilingCache(cache_dir)
+    fetcher = EdgarFetcher(user_agent)
+
+    # Get cached filings (async file I/O)
+    cached_filings = await asyncio.to_thread(cache.list_cached, ticker, form_type)
+
+    # Build map of cached dates by format
+    cached_by_date = {}
+    for filing in cached_filings:
+        date = filing["filing_date"]
+        fmt = filing["format"]
+        if date not in cached_by_date:
+            cached_by_date[date] = {}
+        cached_by_date[date][fmt] = filing
+
+    # Get available filings from SEC (async network I/O)
+    try:
+        available_filings = await asyncio.to_thread(fetcher.list_available, ticker, form_type)
+    except Exception as e:
+        # If SEC query fails, just show cached
+        return {
+            "success": True,
+            "filings": cached_filings,
+            "count": len(cached_filings),
+            "cached_count": len(cached_filings),
+            "available_count": 0,
+            "error": f"Could not query SEC: {str(e)}"
+        }
+
+    # Merge: add cached flag and paths to available filings
+    merged = []
+    for available in available_filings:
+        date = available["filing_date"]
+
+        # Check if cached in any format
+        cached_formats = cached_by_date.get(date, {})
+
+        merged.append({
+            **available,
+            "cached": len(cached_formats) > 0,
+            "cached_formats": list(cached_formats.keys()),
+            "paths": {fmt: filing["path"] for fmt, filing in cached_formats.items()},
+            "size_bytes": cached_formats.get("text", cached_formats.get("markdown", {})).get("size_bytes") if cached_formats else None
+        })
+
+    return {
+        "success": True,
+        "filings": merged,
+        "count": len(merged),
+        "cached_count": len([f for f in merged if f["cached"]]),
+        "available_count": len(merged),
+        "ticker": ticker.upper(),
+        "form_type": form_type
+    }
+
+
+async def search_filing(
+    ticker: str,
+    form_type: str,
+    pattern: str,
+    cache_dir: str = "/tmp/sec-filings",
+    date: Optional[str] = None,
+    context_lines: int = 2,
+    max_results: int = 20,
+    case_sensitive: bool = False
+) -> Dict[str, Any]:
+    """
+    Search for pattern in filing (like grep with line numbers) - async.
+
+    Auto-fetches filing if not cached. Returns matches with context.
+
+    Args:
+        ticker: Stock ticker
+        form_type: Form type
+        pattern: Search pattern (regex supported)
+        cache_dir: Cache directory path
+        date: Optional date filter (YYYY-MM-DD)
+        context_lines: Lines of context before/after match
+        max_results: Maximum number of matches to return
+        case_sensitive: Case-sensitive search (default: False)
+
+    Returns:
+        Dict with matches, line numbers, and metadata
+    """
+    import subprocess
+    import re
+
+    # Fetch filing if needed (will use cache if available) - async
+    filing_result = await fetch_filing(ticker, form_type, cache_dir, date, format="text")
+
+    if not filing_result["success"]:
+        return {
+            "success": False,
+            "error": filing_result.get("error", "Failed to fetch filing")
+        }
+
+    file_path = filing_result["path"]
+
+    # Use grep to search with line numbers and context
+    # -n: line numbers
+    # -C: context lines (before and after)
+    # -i: case insensitive (default)
+    grep_args = ["grep", "-n", f"-C{context_lines}"]
+    if not case_sensitive:
+        grep_args.append("-i")
+
+    grep_args.extend([pattern, file_path])
+
+    try:
+        # Run grep in thread pool (blocking subprocess)
+        result = await asyncio.to_thread(
+            subprocess.run,
+            grep_args,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        # grep returns 1 if no matches (not an error)
+        if result.returncode == 1:
+            return {
+                "success": True,
+                "matches": [],
+                "match_count": 0,
+                "file_path": file_path,
+                "pattern": pattern,
+                "ticker": ticker,
+                "form_type": form_type,
+                "filing_date": filing_result["filing_date"],
+                "message": "No matches found"
+            }
+
+        if result.returncode != 0:
+            return {
+                "success": False,
+                "error": f"grep failed: {result.stderr}"
+            }
+
+        # Parse grep output
+        lines = result.stdout.strip().split('\n')
+
+        # Group matches (grep separates groups with --)
+        matches = []
+        current_match = []
+
+        for line in lines:
+            if line == '--':
+                if current_match:
+                    matches.append(current_match)
+                    current_match = []
+            else:
+                current_match.append(line)
+
+        if current_match:
+            matches.append(current_match)
+
+        # Limit results
+        if len(matches) > max_results:
+            matches = matches[:max_results]
+            truncated = True
+        else:
+            truncated = False
+
+        # Count total line count for context - run file I/O in thread pool
+        def count_lines(path):
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    return sum(1 for _ in f)
+            except Exception:
+                return None
+
+        total_lines = await asyncio.to_thread(count_lines, file_path)
+
+        return {
+            "success": True,
+            "matches": matches,
+            "match_count": len(result.stdout.strip().split('\n--\n')),
+            "returned_matches": len(matches),
+            "truncated": truncated,
+            "file_path": file_path,
+            "total_lines": total_lines,
+            "pattern": pattern,
+            "ticker": ticker.upper(),
+            "form_type": form_type,
+            "filing_date": filing_result["filing_date"],
+            "context_lines": context_lines
+        }
+
+    except subprocess.TimeoutExpired:
+        return {
+            "success": False,
+            "error": "Search timed out (filing too large or pattern too complex)"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Search failed: {str(e)}"
+        }
