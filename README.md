@@ -86,16 +86,49 @@ If you prefer to use Poetry:
 }
 ```
 
-**Option 3: Background HTTP server**
+**Option 3: SSE/HTTP Server (for web-based deployments)**
 
-For advanced use cases (multiple clients, debugging without restart):
+For web interfaces or when you need a persistent HTTP server:
 
 ```bash
-make start      # Start server on http://localhost:6660
-make status     # Check if running
+# Start HTTP server (runs in background on port 5002)
+make server
+
+# Or specify custom port
+PORT=8080 make server
+
+# Check status
+make status
+
+# Check logs
+make logs
 ```
 
-Then configure Claude Code with HTTP transport (see docs).
+Configure Claude Code to use SSE transport:
+
+```json
+{
+  "projects": {
+    "/path/to/your/project": {
+      "mcpServers": {
+        "edgar-ux": {
+          "type": "sse",
+          "url": "http://127.0.0.1:5002/sse"
+        }
+      }
+    }
+  }
+}
+```
+
+**When to use SSE:**
+- Web-based Claude Code deployments (e.g., browser terminals)
+- Multiple clients sharing one server instance
+- Debugging without restarting Claude Code
+
+**When to use stdio:**
+- Local CLI usage (standard approach)
+- Single-user development environment
 
 **Usage in Claude Code:**
 
