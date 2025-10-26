@@ -172,6 +172,58 @@ List filings cached on disk.
 }
 ```
 
+## Example Output
+
+**Our differentiator: BBG Lite formatted, human-readable output**
+
+### list_filings("TSLA", "10-K")
+
+```
+TSLA 10-K FILINGS AVAILABLE
+──────────────────────────────────────────────────────────────────────
+FILED       CACHED  SIZE     [ACTIONS]
+2025-04-30  ✓       423 KB
+2025-01-30  ✓       313 KB
+2024-01-29  ✓       814 KB
+2023-01-31          -
+2022-05-02          -
+2022-02-07          -
+2021-04-30          -
+2021-02-08          -
+2020-04-28          -
+2020-02-13          -
+2019-02-19          -
+2018-02-23          -
+2017-03-01          -
+
+... 5 more filings
+
+──────────────────────────────────────────────────────────────────────
+✓ Cached filings available locally (instant access)
+  Other filings will be downloaded on demand from SEC
+
+Data source: SEC EDGAR | Powered by edgartools
+```
+
+### fetch_filing("TSLA", "10-K")
+
+```json
+{
+  "success": true,
+  "path": "/tmp/sec-filings/TSLA/10-K/2025-04-30.txt",
+  "company": "Tesla, Inc.",
+  "ticker": "TSLA",
+  "form_type": "10-K",
+  "filing_date": "2025-04-30",
+  "format": "text",
+  "size_bytes": 427000,
+  "sec_url": "https://www.sec.gov/...",
+  "cached": false
+}
+```
+
+Clean, formatted, immediately useful. No raw JSON dumps, no 241K tokens in context.
+
 ## Configuration
 
 **Cache Directory:**
