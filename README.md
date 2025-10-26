@@ -1,14 +1,22 @@
 # edgar-ux-mcp
 
-*Scale beats cleverness. Save to disk, read what you need.*
+**For AI agents:** SEC EDGAR filings that won't blow your context window. I return file paths, you use Read/Grep/Bash. A Tesla 10-K is 241K tokens - I save it to disk so you read only what you need.
 
-MCP server for SEC filings that returns file paths, not content.
+**For humans:** Bloomberg Terminal-style output. Formatted tables, not raw JSON. Context-efficient by design.
 
-## The Bitter Lesson
+## Why This Approach Wins
 
-Current SEC MCPs dump 241K tokens into your context per filing. This is the clever approach.
+**Other SEC MCPs:** Dump entire filing into tool response (241K tokens per 10-K)
 
-The bitter lesson: Just save to disk. Use Read/Grep/Bash. Scale storage, not prompts.
+**This MCP:** Save to `/tmp/sec-filings/`, return path (50 tokens)
+
+You get:
+- **Zero context pollution** - Filing doesn't count against your limit
+- **Selective reading** - Read line 1000-1050, not all 10,000 lines
+- **Multi-filing analysis** - Compare 5 years of 10-Ks without context overflow
+- **Formatted discovery** - BBG Lite tables show what's available, not JSON blobs
+
+The Bitter Lesson: Scale (disk storage) beats cleverness (cramming into context).
 
 ## Installation
 
