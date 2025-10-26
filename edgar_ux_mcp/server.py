@@ -12,6 +12,7 @@ from typing import Optional
 from mcp.server.fastmcp import FastMCP
 from .core import fetch_filing as core_fetch_filing
 from .core import list_cached_filings as core_list_cached
+from .core import search_filing as core_search_filing
 
 # Suppress INFO logs
 logging.getLogger("edgar").setLevel(logging.WARNING)
@@ -95,6 +96,60 @@ def list_cached(ticker: Optional[str] = None, form_type: Optional[str] = None) -
         return {
             "success": False,
             "error": f"Failed to list cached filings: {str(e)}"
+        }
+
+
+@mcp.tool()
+async def search_filing(
+    ticker: str,
+    form_type: str,
+    pattern: str,
+    date: Optional[str] = None,
+    context_lines: int = 2,
+    case_sensitive: bool = False
+) -> dict:
+    """
+    Search for text in a cached SEC filing.
+
+    The filing must be fetched first with fetch_filing().
+    Returns matching lines with context.
+
+    Args:
+        ticker: Stock ticker (e.g., "TSLA", "AAPL")
+        form_type: Form type ("10-K", "10-Q", "8-K", etc.)
+        pattern: Search pattern (supports regex)
+        date: Optional date filter (YYYY-MM-DD) to select specific filing
+        context_lines: Number of context lines before/after match (default: 2)
+        case_sensitive: Case-sensitive search (default: False)
+
+    Returns:
+        Dictionary with matches, line numbers, and context
+
+    Example:
+        # First fetch the filing
+        fetch_filing("TSLA", "10-K")
+
+        # Then search it
+        search_filing("TSLA", "10-K", "revenue")
+        → {matches: [...], count: 6, total_lines: 5819}
+
+        # Search with regex
+        search_filing("TSLA", "10-K", "revenue|revenues")
+    """
+    try:
+        return await core_search_filing(
+            ticker=ticker,
+            form_type=form_type,
+            pattern=pattern,
+            cache_dir=str(CACHE_DIR),
+            date=date,
+            context_lines=context_lines,
+            case_sensitive=case_sensitive
+        )
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Search failed: {str(e)}"
         }
 
 
