@@ -129,7 +129,7 @@ Try: Read(path, offset=648, limit=50)
 
 ## BBG Lite Design Principles
 
-From `meta/BBG_LITE_DESIGN_SYSTEM.md`:
+From `meta/MCP_UX_DESIGN.md`:
 1. **Hierarchy through layout** - position and spacing convey importance
 2. **Density without clutter** - every character earns its keep
 3. **Consistency breeds speed** - similar data looks similar
