@@ -109,32 +109,48 @@ async def search_filing(
     case_sensitive: bool = False
 ) -> dict:
     """
-    Search for text in a cached SEC filing.
+    Search for text in a cached SEC filing (grep-like with line numbers).
 
-    The filing must be fetched first with fetch_filing().
-    Returns matching lines with context.
+    Auto-fetches filing if not cached. Returns matching lines with context.
+    Case-insensitive by default. Full regex support.
 
     Args:
         ticker: Stock ticker (e.g., "TSLA", "AAPL")
         form_type: Form type ("10-K", "10-Q", "8-K", etc.)
-        pattern: Search pattern (supports regex)
+        pattern: Search pattern (full regex support, case-insensitive default)
         date: Optional date filter (YYYY-MM-DD) to select specific filing
         context_lines: Number of context lines before/after match (default: 2)
         case_sensitive: Case-sensitive search (default: False)
 
     Returns:
-        Dictionary with matches, line numbers, and context
+        Dictionary with matches, line numbers, context, and file path
 
-    Example:
-        # First fetch the filing
-        fetch_filing("TSLA", "10-K")
+    Pattern Tips:
+        - OR patterns work: "revenue|revenues|sales" (tries all terms)
+        - Regex works: "property.*equipment" (matches "property and equipment")
+        - Start broad: Try "equipment" before "capital expenditure"
+        - Text may wrap: "Property and equipment" might span 2 lines in filing
+        - Case-insensitive by default: "Revenue" matches "REVENUE", "revenue"
 
-        # Then search it
+    Examples:
+        # Simple search
         search_filing("TSLA", "10-K", "revenue")
         → {matches: [...], count: 6, total_lines: 5819}
 
-        # Search with regex
-        search_filing("TSLA", "10-K", "revenue|revenues")
+        # OR pattern (try multiple terms)
+        search_filing("LLY", "10-Q", "capex|capital expenditure|PP&E")
+        → Searches for ANY of those terms
+
+        # Regex pattern (flexible matching)
+        search_filing("LLY", "10-Q", "property.*equipment")
+        → Matches "property and equipment", "property, plant and equipment"
+
+        # If no matches, try broader terms
+        search_filing("LLY", "10-Q", "equipment")  # Simpler, more likely to match
+
+        # Use file path for deep dive at specific line
+        result = search_filing("TSLA", "10-K", "risk factors")
+        Read(result["path"], offset=LINE_FROM_RESULT, limit=50)
     """
     try:
         return await core_search_filing(
