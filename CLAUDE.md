@@ -11,7 +11,7 @@ See `DEVELOPER.md` for complete architecture, tool design, and implementation de
 
 ## Quick Reference
 
-**Repository**: https://github.com/bxxd/idio-edgar-mcp
+**Repository**: https://github.com/bxxd/mcp-edgar-ux
 
 **Four MCP Tools**:
 1. `list_filings(ticker, form_type)` - Discovery (cached + available from SEC)
