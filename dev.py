@@ -59,7 +59,7 @@ def main():
     # Set up file watcher
     handler = ServerRestartHandler()
     observer = Observer()
-    observer.schedule(handler, str(Path("edgar_ux_mcp")), recursive=True)
+    observer.schedule(handler, str(Path("mcp_edgar_ux")), recursive=True)
     observer.start()
 
     try:

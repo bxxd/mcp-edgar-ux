@@ -1,4 +1,4 @@
-# edgar-ux-mcp
+# mcp-edgar-ux
 
 **For AI agents:** SEC EDGAR filings that won't blow your context window. I return file paths, you use Read/Grep/Bash. A Tesla 10-K is 241K tokens - I save it to disk so you read only what you need.
 
@@ -46,15 +46,15 @@ make dev        # Watch for file changes, auto-restart
 
 **Option 1: Standalone executable (recommended)**
 
-Use the provided `edgar-ux-mcp-mcp` executable for easy setup:
+Use the provided `mcp-edgar-ux-mcp` executable for easy setup:
 
 ```json
 {
   "projects": {
     "/your/project/path": {
       "mcpServers": {
-        "edgar-ux-mcp": {
-          "command": "/path/to/edgar-ux-mcp/edgar-ux-mcp-mcp"
+        "mcp-edgar-ux": {
+          "command": "/path/to/mcp-edgar-ux/mcp-edgar-ux-mcp"
         }
       }
     }
@@ -62,7 +62,7 @@ Use the provided `edgar-ux-mcp-mcp` executable for easy setup:
 }
 ```
 
-Or add via Claude Code UI: Settings → MCP → Add Server → Command: `/path/to/edgar-ux-mcp/edgar-ux-mcp-mcp`
+Or add via Claude Code UI: Settings → MCP → Add Server → Command: `/path/to/mcp-edgar-ux/mcp-edgar-ux-mcp`
 
 Restart Claude Code and the server will start automatically.
 
@@ -75,10 +75,10 @@ If you prefer to use Poetry:
   "projects": {
     "/your/project/path": {
       "mcpServers": {
-        "edgar-ux-mcp": {
+        "mcp-edgar-ux": {
           "command": "poetry",
-          "args": ["run", "edgar-ux-mcp"],
-          "cwd": "/path/to/edgar-ux-mcp"
+          "args": ["run", "mcp-edgar-ux"],
+          "cwd": "/path/to/mcp-edgar-ux"
         }
       }
     }
@@ -331,12 +331,12 @@ make clean
 
 **Separation of concerns:**
 
-- `edgar_ux_mcp/core.py` - Pure business logic
+- `mcp_edgar_ux/core.py` - Pure business logic
   - `FilingCache` class (disk management)
   - `EdgarFetcher` class (SEC API)
   - Pure functions (no global state)
 
-- `edgar_ux_mcp/server.py` - MCP delivery
+- `mcp_edgar_ux/server.py` - MCP delivery
   - MCP tool decorators
   - Transport config (stdio/HTTP)
   - Thin wrapper around core

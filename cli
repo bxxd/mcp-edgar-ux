@@ -1,4 +1,4 @@
 #!/bin/bash
 # Wrapper to hide poetry run - just call ./cli instead
 cd "$(dirname "$0")"
-poetry run python -m edgar_ux_mcp.cli "$@"
+poetry run python -m mcp_edgar_ux.cli "$@"

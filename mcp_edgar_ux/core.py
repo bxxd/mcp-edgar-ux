@@ -203,15 +203,23 @@ class EdgarFetcher:
             "sec_url": filing.url
         }
 
-    def download_content(self, filing, format: str = "markdown") -> tuple[str, str]:
+    def download_content(self, filing, format: str = "markdown", include_exhibits: bool = True) -> tuple[str, str]:
         """
         Download filing content in specified format.
+
+        Args:
+            filing: Edgar filing object
+            format: Output format (html, markdown, text)
+            include_exhibits: Include exhibits (default True). Critical for 8-Ks where
+                            exhibits contain actual data (e.g., EX-99.1 earnings releases)
 
         Returns:
             Tuple of (content, actual_format) - format may differ if fallback occurs
         """
+        # Get main document content
         if format == "html":
-            return filing.html(), "html"
+            main_content = filing.html()
+            actual_format = "html"
         elif format == "markdown":
             # Markdown is just cleaned HTML rendered with markdownify
             # BeautifulSoup handles XBRL/XML stripping
@@ -231,15 +239,64 @@ class EdgarFetcher:
                 # Get body
                 body = soup.find('body')
                 if body:
-                    return md(str(body), heading_style="ATX"), "markdown"
+                    main_content = md(str(body), heading_style="ATX")
+                    actual_format = "markdown"
                 else:
                     # Fallback to edgartools text() if no body
-                    return filing.text(), "text"
+                    main_content = filing.text()
+                    actual_format = "text"
             except ImportError:
                 # Fallback to text if libs not available
-                return filing.text(), "text"
+                main_content = filing.text()
+                actual_format = "text"
         else:  # text
-            return filing.text(), "text"
+            main_content = filing.text()
+            actual_format = "text"
+
+        # Include exhibits if requested (default True)
+        if include_exhibits and hasattr(filing, 'exhibits'):
+            try:
+                exhibits = list(filing.exhibits)
+                # Skip first exhibit if it's the main document (common pattern)
+                # Check by comparing to main filing form type
+                for i, exhibit in enumerate(exhibits):
+                    # Skip if this is the main document (description matches form type)
+                    if exhibit.description == filing.form:
+                        continue
+
+                    # Get exhibit content based on format
+                    try:
+                        if actual_format == "html":
+                            # Note: exhibits may not have .html(), fall back to .text()
+                            exhibit_content = exhibit.text() if hasattr(exhibit, 'text') else str(exhibit.content)
+                        elif actual_format == "markdown":
+                            # Try markdown, fall back to text
+                            if hasattr(exhibit, 'markdown'):
+                                exhibit_content = exhibit.markdown()
+                            elif hasattr(exhibit, 'text'):
+                                exhibit_content = exhibit.text()
+                            else:
+                                exhibit_content = str(exhibit.content)
+                        else:  # text
+                            exhibit_content = exhibit.text() if hasattr(exhibit, 'text') else str(exhibit.content)
+
+                        # Append with clear separator
+                        separator = "\n\n" + "="*70 + "\n"
+                        separator += f"EXHIBIT: {exhibit.description} ({exhibit.document})\n"
+                        separator += "="*70 + "\n\n"
+
+                        main_content += separator + exhibit_content
+                    except Exception as e:
+                        # If exhibit fails to fetch, log but continue
+                        # Don't let one bad exhibit break the whole download
+                        error_msg = f"\n\n[Failed to fetch exhibit {exhibit.description}: {str(e)}]\n\n"
+                        main_content += error_msg
+            except Exception:
+                # If exhibits access fails entirely, just return main content
+                # This ensures backwards compatibility
+                pass
+
+        return main_content, actual_format
 
 
 def _read_preview(path: Path, num_lines: int) -> tuple[list[str], int]:
@@ -520,10 +577,11 @@ async def search_filing(
     file_path = filing_result["path"]
 
     # Use grep to search with line numbers and context
+    # -E: extended regex (allows | for alternation without escaping)
     # -n: line numbers
     # -C: context lines (before and after)
     # -i: case insensitive (default)
-    grep_args = ["grep", "-n", f"-C{context_lines}"]
+    grep_args = ["grep", "-E", "-n", f"-C{context_lines}"]
     if not case_sensitive:
         grep_args.append("-i")
 

@@ -1,4 +1,4 @@
-# edgar-ux-mcp MCP - Developer Context
+# mcp-edgar-ux MCP - Developer Context
 
 MCP server for SEC EDGAR filings with Bloomberg Terminal-inspired formatted output.
 
@@ -54,12 +54,12 @@ Python 3.11+
 ### Project Structure
 
 ```
-edgar-ux-mcp/
-├── edgar_ux_mcp/
+mcp-edgar-ux/
+├── mcp_edgar_ux/
 │   ├── core.py          → Pure async business logic (fetch, search, list)
 │   ├── server_http.py   → MCP HTTP/SSE server (Starlette)
 │   └── cli.py           → CLI for testing tools (no MCP restart needed)
-├── cli                  → Wrapper script (poetry run python -m edgar_ux_mcp.cli)
+├── cli                  → Wrapper script (poetry run python -m mcp_edgar_ux.cli)
 ├── dev.py               → Dev mode with auto-restart (watchdog)
 ├── TASKS.md             → Implementation roadmap (Phases 1-7)
 ├── DEVELOPER.md         → This file
@@ -96,7 +96,8 @@ path = await asyncio.to_thread(cache.save, ...)
 - Returns: Path + preview with line numbers + metadata
 
 **3. `search_filing(ticker, form_type, pattern, context_lines=2)` - CONTENT SEARCH**
-- Like `Grep` with line numbers
+- Like `Grep` with line numbers (uses `grep -E` for extended regex)
+- Pattern syntax: Extended regex (use `|` for alternation, no escaping needed)
 - Searches within filing (auto-downloads if not cached)
 - Returns: Matches with context + line numbers
 
@@ -183,13 +184,13 @@ make kill                               # Stop server
 
 **2. Test MCP server** (via stdio transport):
 ```bash
-poetry run python -m edgar_ux_mcp.server --transport stdio
+poetry run python -m mcp_edgar_ux.server --transport stdio
 # Test with MCP inspector or Claude Code
 ```
 
 **3. Test HTTP/SSE server** (for web integration):
 ```bash
-poetry run uvicorn edgar_ux_mcp.server_http:app --host 127.0.0.1 --port 5002
+poetry run uvicorn mcp_edgar_ux.server_http:app --host 127.0.0.1 --port 5002
 curl http://127.0.0.1:5002/health
 ```
 
@@ -198,13 +199,13 @@ curl http://127.0.0.1:5002/health
 **Before committing**:
 ```bash
 # Format
-poetry run black edgar_ux_mcp/
+poetry run black mcp_edgar_ux/
 
 # Type check
-poetry run mypy edgar_ux_mcp/
+poetry run mypy mcp_edgar_ux/
 
 # Lint
-poetry run ruff check edgar_ux_mcp/
+poetry run ruff check mcp_edgar_ux/
 ```
 
 ### Cache Configuration
@@ -414,9 +415,9 @@ print(f"[DEBUG] Completed: {result}", flush=True)
 ## Key Files
 
 **Core Implementation**:
-- `edgar_ux_mcp/core.py` - Business logic (fetch, search, list)
-- `edgar_ux_mcp/server_http.py` - MCP HTTP/SSE server
-- `edgar_ux_mcp/cli.py` - CLI for testing
+- `mcp_edgar_ux/core.py` - Business logic (fetch, search, list)
+- `mcp_edgar_ux/server_http.py` - MCP HTTP/SSE server
+- `mcp_edgar_ux/cli.py` - CLI for testing
 
 **Documentation**:
 - `TASKS.md` - Implementation roadmap (7 phases)

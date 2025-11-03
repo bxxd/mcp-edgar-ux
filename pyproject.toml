@@ -1,10 +1,10 @@
 [tool.poetry]
-name = "edgar-ux-mcp"
+name = "mcp-edgar-ux"
 version = "0.1.0"
 description = "SEC EDGAR filings MCP server with agent-friendly UX. BBG Lite formatted output, progressive disclosure, disk caching."
 authors = ["bxxd <bxxd@users.noreply.github.com>"]
 readme = "README.md"
-packages = [{include = "edgar_ux_mcp"}]
+packages = [{include = "mcp_edgar_ux"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -13,7 +13,7 @@ edgartools = "^4.0.0"
 markdownify = "^0.13.0"
 
 [tool.poetry.scripts]
-edgar-ux-mcp = "edgar_ux_mcp.server:main"
+mcp-edgar-ux = "mcp_edgar_ux.server:main"
 
 [tool.poetry.group.dev.dependencies]
 watchdog = "^6.0.0"

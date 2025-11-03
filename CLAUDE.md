@@ -1,4 +1,4 @@
-# CLAUDE.md - edgar-ux-mcp MCP Context
+# CLAUDE.md - mcp-edgar-ux MCP Context
 
 MCP server for SEC EDGAR filings with BBG Lite formatted output.
 
@@ -50,8 +50,8 @@ make logs                         # Tail server logs
 **Key Files**:
 - `DEVELOPER.md` - Complete architecture and patterns
 - `TASKS.md` - 7-phase implementation roadmap
-- `edgar_ux_mcp/core.py` - Pure async business logic
-- `edgar_ux_mcp/server_http.py` - MCP HTTP/SSE server
-- `edgar_ux_mcp/cli.py` - CLI for testing
+- `mcp_edgar_ux/core.py` - Pure async business logic
+- `mcp_edgar_ux/server_http.py` - MCP HTTP/SSE server
+- `mcp_edgar_ux/cli.py` - CLI for testing
 
-**Note**: Package currently named `edgar_ux_mcp` (philosophical reference to "The Bitter Lesson"). Consider renaming to `edgar_mcp` for clarity.
+**Note**: Package currently named `mcp_edgar_ux` (philosophical reference to "The Bitter Lesson"). Consider renaming to `edgar_mcp` for clarity.
