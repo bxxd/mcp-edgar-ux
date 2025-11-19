@@ -129,6 +129,7 @@ async def search_command(
     date: str | None,
     context_lines: int,
     max_results: int,
+    offset: int,
     cache_dir: str,
 ) -> int:
     """Search SEC filing"""
@@ -140,7 +141,8 @@ async def search_command(
             cache_dir=cache_dir,
             date=date,
             context_lines=context_lines,
-            max_results=max_results
+            max_results=max_results,
+            offset=offset
         )
         output = format_search_result(result)
         print(output)
@@ -235,6 +237,12 @@ Cache directory: {default_cache} (from CACHE_DIR env or default)
         default=20,
         help="Maximum matches to return (default: 20)"
     )
+    search_parser.add_argument(
+        "--offset",
+        type=int,
+        default=0,
+        help="Number of matches to skip for pagination (default: 0)"
+    )
 
     return parser.parse_args()
 
@@ -274,6 +282,7 @@ async def async_main() -> int:
             date=args.date,
             context_lines=args.context,
             max_results=args.max_results,
+            offset=args.offset,
             cache_dir=args.cache_dir,
         )
 

@@ -303,6 +303,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:  # noqa: AN
         date = arguments.get("date")
         context_lines = arguments.get("context_lines", 2)
         max_results = arguments.get("max_results", 20)
+        offset = arguments.get("offset", 0)
 
         if not ticker or not form_type or not pattern:
             msg = "search_filing() requires 'ticker', 'form_type', and 'pattern' parameters"
@@ -316,7 +317,8 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:  # noqa: AN
                 cache_dir=str(CACHE_DIR),
                 date=date,
                 context_lines=context_lines,
-                max_results=max_results
+                max_results=max_results,
+                offset=offset
             )
             # Return formatted result as text
             formatted = format_search_result(result)
@@ -535,6 +537,8 @@ def format_search_result(result: dict) -> str:
     match_count = result.get("match_count", 0)
     returned = result.get("returned_matches", len(matches))
     truncated = result.get("truncated", False)
+    offset = result.get("offset", 0)
+    has_more = result.get("has_more", False)
     file_path = result.get("file_path", "")
     total_lines = result.get("total_lines")
     pattern = result.get("pattern", "")
@@ -558,10 +562,17 @@ Try: Different search term | Read(path) for full filing
         ""
     ]
 
-    # Summary line
+    # Summary line with pagination info
     total_str = f"{total_lines:,} lines" if total_lines else "unknown length"
-    truncated_str = f" (showing first {returned})" if truncated else ""
-    lines.append(f"MATCHES ({match_count} found{truncated_str} | {total_str})")
+    if offset > 0 or has_more:
+        start = offset + 1
+        end = offset + returned
+        range_str = f" (showing {start}-{end} of {match_count})"
+    elif truncated:
+        range_str = f" (showing first {returned})"
+    else:
+        range_str = ""
+    lines.append(f"MATCHES ({match_count} found{range_str} | {total_str})")
     lines.append("─" * 70)
 
     # Format each match group
@@ -588,7 +599,13 @@ Try: Different search term | Read(path) for full filing
 
     lines.append("")
     lines.append(f"PATH: {file_path}")
-    lines.append(f'Try: Read(path, offset=LINE, limit=50) | search_filing(..., pattern="OTHER TERM")')
+
+    # Show navigation hints
+    if has_more:
+        next_offset = offset + returned
+        lines.append(f'Next: search_filing(..., offset={next_offset}) | Read(path, offset=LINE, limit=50)')
+    else:
+        lines.append(f'Try: Read(path, offset=LINE, limit=50) | search_filing(..., pattern="OTHER TERM")')
 
     return "\n".join(lines)
 

@@ -542,6 +542,7 @@ async def search_filing(
     date: Optional[str] = None,
     context_lines: int = 2,
     max_results: int = 20,
+    offset: int = 0,
     case_sensitive: bool = False
 ) -> Dict[str, Any]:
     """
@@ -557,6 +558,7 @@ async def search_filing(
         date: Optional date filter (YYYY-MM-DD)
         context_lines: Lines of context before/after match
         max_results: Maximum number of matches to return
+        offset: Number of matches to skip (for pagination)
         case_sensitive: Case-sensitive search (default: False)
 
     Returns:
@@ -635,7 +637,12 @@ async def search_filing(
         if current_match:
             matches.append(current_match)
 
-        # Limit results
+        # Store total count before pagination
+        total_matches = len(matches)
+
+        # Apply offset and limit for pagination
+        if offset > 0:
+            matches = matches[offset:]
         if len(matches) > max_results:
             matches = matches[:max_results]
             truncated = True
@@ -655,9 +662,11 @@ async def search_filing(
         return {
             "success": True,
             "matches": matches,
-            "match_count": len(result.stdout.strip().split('\n--\n')),
+            "match_count": total_matches,
             "returned_matches": len(matches),
+            "offset": offset,
             "truncated": truncated,
+            "has_more": offset + len(matches) < total_matches,
             "file_path": file_path,
             "total_lines": total_lines,
             "pattern": pattern,

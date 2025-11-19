@@ -106,6 +106,8 @@ async def search_filing(
     pattern: str,
     date: Optional[str] = None,
     context_lines: int = 2,
+    max_results: int = 20,
+    offset: int = 0,
     case_sensitive: bool = False
 ) -> dict:
     """
@@ -120,6 +122,8 @@ async def search_filing(
         pattern: Search pattern (full regex support, case-insensitive default)
         date: Optional date filter (YYYY-MM-DD) to select specific filing
         context_lines: Number of context lines before/after match (default: 2)
+        max_results: Maximum matches to return (default: 20)
+        offset: Number of matches to skip for pagination (default: 0)
         case_sensitive: Case-sensitive search (default: False)
 
     Returns:
@@ -160,6 +164,8 @@ async def search_filing(
             cache_dir=str(CACHE_DIR),
             date=date,
             context_lines=context_lines,
+            max_results=max_results,
+            offset=offset,
             case_sensitive=case_sensitive
         )
     except Exception as e:
