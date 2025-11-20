@@ -38,7 +38,7 @@ class FilingContent:
     filing: Filing
     content: str
     format: str  # "text", "markdown", or "html"
-    path: Path
+    path: Optional[Path]  # None before saving, set by repository after save
     size_bytes: int
     total_lines: int
 
