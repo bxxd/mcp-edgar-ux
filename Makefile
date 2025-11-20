@@ -12,15 +12,14 @@ CACHE_DIR ?= /var/idio-mcp-cache/sec-filings
 help:
 	@echo "edgar-ux-mcp development commands:"
 	@echo ""
+	@echo "  make dev        - Run server with auto-reload (development mode)"
+	@echo "  make server     - Run MCP HTTP server (background, port $(PORT))"
+	@echo "  make logs       - Tail server logs (logs/server.log)"
+	@echo "  make stdio      - Run MCP server (stdio mode for Claude Code)"
+	@echo ""
 	@echo "  make test       - Run all tests"
 	@echo "  make lint       - Run type checking (mypy) and linting (ruff)"
 	@echo "  make lint-fix   - Auto-fix linting issues where possible"
-	@echo "  make mypy       - Run mypy type checking only"
-	@echo "  make ruff       - Run ruff linting only"
-	@echo "  make stdio      - Run MCP server (stdio mode for Claude Code)"
-	@echo "  make run        - Run MCP HTTP server (alias for make server)"
-	@echo "  make server     - Run MCP HTTP server (graceful restart, port $(PORT))"
-	@echo "  make logs       - Tail server logs (logs/server.log)"
 	@echo "  make clean      - Remove Python cache files and temp cache"
 	@echo "  make all        - Run lint + test (use before committing)"
 	@echo ""
@@ -33,7 +32,7 @@ help:
 # Run all tests
 test:
 	@echo "Running tests..."
-	@poetry run python tests/test_core.py
+	@poetry run pytest tests/test_hexagonal.py -v
 
 # Run type checking only
 mypy:
@@ -64,6 +63,13 @@ stdio:
 
 # Run MCP HTTP server (alias for server)
 run: server
+
+# Development mode with auto-reload
+dev:
+	@echo "Starting server with auto-reload (port $(PORT))..." >&2
+	@echo "Edit any .py file and server will restart automatically" >&2
+	@echo "Press Ctrl+C to stop" >&2
+	@CACHE_DIR=$(CACHE_DIR) poetry run uvicorn mcp_edgar_ux.server_http:app --host 127.0.0.1 --port $(PORT) --reload
 
 # Run MCP HTTP server (for web integration)
 # Uses PID file to track and kill previous server instances

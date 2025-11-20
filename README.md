@@ -26,20 +26,19 @@ poetry install
 
 ## Usage
 
-### Production (Background Daemon)
+### Quick Start
 
 ```bash
-make start      # Start server on http://localhost:8080
-make stop       # Stop server
-make restart    # Restart server
-make status     # Check status
-make logs       # Tail logs
-```
+# Development (auto-reload on file changes)
+make dev        # Server restarts when you edit code
 
-### Development (Auto-restart)
+# Production (background daemon)
+make server     # Start server on http://127.0.0.1:5002
+make logs       # Tail server logs
 
-```bash
-make dev        # Watch for file changes, auto-restart
+# Configure via .env (optional)
+cp .env.example .env
+# Edit .env to customize PORT and CACHE_DIR
 ```
 
 ### Configure Claude Code
@@ -91,17 +90,13 @@ If you prefer to use Poetry:
 For web interfaces or when you need a persistent HTTP server:
 
 ```bash
-# Start HTTP server (runs in background on port 5002)
+# Start HTTP server (runs in background)
 make server
 
-# Or specify custom port
-PORT=8080 make server
-
-# Check status
-make status
-
-# Check logs
+# Tail logs
 make logs
+
+# Customize port via .env (see Configuration section below)
 ```
 
 Configure Claude Code to use SSE transport:
@@ -267,14 +262,31 @@ Clean, formatted, immediately useful. No raw JSON dumps, no 241K tokens in conte
 
 ## Configuration
 
-**Cache Directory:**
-- Default: `/tmp/sec-filings`
-- Env var: `export BITTER_EDGAR_CACHE_DIR=/custom/path`
-- CLI arg: `--cache-dir /custom/path`
+**Using .env file (recommended):**
 
-**User Agent:**
-- Hardcoded: `breed research breed@idio.sh`
-- SEC requires this for API access
+```bash
+# Copy example and customize
+cp .env.example .env
+
+# Edit .env
+PORT=5002
+CACHE_DIR=/var/idio-mcp-cache/sec-filings
+```
+
+**Or override inline:**
+
+```bash
+# Custom port
+PORT=8080 make server
+
+# Custom cache directory
+CACHE_DIR=/custom/path make server
+```
+
+**Defaults (if no .env):**
+- Port: `5002`
+- Cache: `/var/idio-mcp-cache/sec-filings`
+- User agent: `breed research breed@idio.sh` (SEC requires this)
 
 ## Workflow Example
 
@@ -317,11 +329,14 @@ Read("/tmp/sec-filings/TSLA/10-K/2025-04-30.txt", offset=1200, limit=50)
 # Install dependencies
 poetry install
 
+# Development mode (auto-reload on file changes)
+make dev
+
 # Run tests
 make test
 
-# Dev mode (auto-restart)
-make dev
+# Lint and type check
+make lint
 
 # Clean cache
 make clean
@@ -329,22 +344,32 @@ make clean
 
 ## Architecture
 
-**Separation of concerns:**
+**Hexagonal Architecture (Ports & Adapters):**
 
-- `mcp_edgar_ux/core.py` - Pure business logic
-  - `FilingCache` class (disk management)
-  - `EdgarFetcher` class (SEC API)
-  - Pure functions (no global state)
+- `mcp_edgar_ux/core/` - Business logic
+  - Domain models (Filing, SearchResult, etc.)
+  - Port interfaces (Repository, Fetcher, Searcher)
+  - Use case services (pure business logic)
 
-- `mcp_edgar_ux/server.py` - MCP delivery
-  - MCP tool decorators
-  - Transport config (stdio/HTTP)
+- `mcp_edgar_ux/adapters/` - Infrastructure
+  - Filesystem cache (implements Repository port)
+  - EDGAR API client (implements Fetcher port)
+  - Grep search (implements Searcher port)
+  - MCP handlers (shared tool definitions)
+
+- `mcp_edgar_ux/container.py` - Dependency injection
+  - Wires adapters to core services
+  - Single point of configuration
+
+- `mcp_edgar_ux/server_http.py` - MCP HTTP/SSE server (170 lines)
   - Thin wrapper around core
+  - Uses dependency injection
 
 **Benefits:**
-- Core is testable without MCP
-- Server is just delivery
-- Can swap delivery layer (REST, CLI, etc.)
+- Core is testable without MCP or infrastructure
+- Can swap adapters (S3 cache, different SEC API, etc.)
+- 81% reduction in server code via dependency injection
+- Eliminated ~300 lines of duplication
 
 ## Credits
 
