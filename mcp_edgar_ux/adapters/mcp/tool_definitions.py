@@ -58,7 +58,7 @@ Example:
                     "type": "integer",
                     "description": "Number of lines to preview (default: 50, 0 to disable)",
                     "default": 50
-                },
+                }
             },
             "required": ["ticker", "form_type"]
         }
