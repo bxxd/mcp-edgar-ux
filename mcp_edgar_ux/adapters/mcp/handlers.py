@@ -53,6 +53,7 @@ class MCPHandlers:
                 "path": str(filing_content.path),
                 "preview": preview,
                 "metadata": {
+                    "company": filing_content.filing.company_name,
                     "ticker": filing_content.filing.ticker,
                     "form_type": filing_content.filing.form_type,
                     "filing_date": filing_content.filing.filing_date,
