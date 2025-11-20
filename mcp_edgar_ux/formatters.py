@@ -186,14 +186,23 @@ def format_list_filings(result: dict[str, Any]) -> str:
     ticker = result['filings'][0]['ticker'].upper() if result['filings'] else "FILINGS"
     form_type = result['filings'][0]['form_type'].upper() if result['filings'] else ""
 
+    # Get pagination parameters
+    start = result.get('start', 0)
+    max_results = result.get('max', 15)
+    total_count = result['count']
+
+    # Calculate pagination
+    end = min(start + max_results, total_count)
+    filings_to_show = result['filings'][start:end]
+
     # Header
     lines.append(f"{ticker} {form_type} FILINGS AVAILABLE")
     lines.append("─" * 70)
     lines.append(f"FILED       LOCATION (if cached)")
     lines.append("─" * 70)
 
-    # Table rows (first 15)
-    for filing in result['filings'][:15]:
+    # Table rows (paginated)
+    for filing in filings_to_show:
         date = filing['filing_date'][:10].ljust(10)
         cached_info = filing.get('cached', {})
 
@@ -221,14 +230,9 @@ def format_list_filings(result: dict[str, Any]) -> str:
         else:
             lines.append(f"{date}  (not cached - will download on demand)")
 
-    # Show remaining count
-    if result['count'] > 15:
-        lines.append("")
-        lines.append(f"... {result['count'] - 15} more filings")
-
     # Footer
     lines.append("")
-    lines.append(f"Showing {min(result['count'], 15)} of {result['count']} filings ({result['cached_count']} cached)")
+    lines.append(f"Showing {start + 1}-{end} of {total_count} filings ({result['cached_count']} cached)")
     lines.append("")
     lines.append(f"Try: fetch_filing(ticker, form, date) | search_filing(ticker, form, pattern)")
     lines.append(f"     Read(path) to read cached filing directly")

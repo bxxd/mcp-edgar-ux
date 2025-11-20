@@ -142,16 +142,20 @@ Use this BEFORE fetch_filing to see what's available.
 Args:
 - ticker: Stock ticker (e.g., "TSLA", "AAPL")
 - form_type: Form type (e.g., "10-K", "10-Q", "8-K")
+- start: Starting index (default: 0, latest filings first)
+- max: Maximum filings to return (default: 15)
 
 Returns:
-- filings: List of all available filings (sorted by date, newest first)
+- filings: List of available filings (sorted by date, newest first)
 - Each filing shows: filing_date, cached (✓ or blank), size (if cached)
 - Shows which filings need to be fetched vs already cached
 
 Example:
   list_filings(ticker="TSLA", form_type="10-K")
-  → Shows all TSLA 10-K filings available (20+ years)
-  → Indicates which are cached locally
+  → Shows first 15 TSLA 10-K filings (latest)
+
+  list_filings(ticker="TSLA", form_type="10-K", start=15, max=15)
+  → Shows next 15 filings (pagination)
 
   Then: fetch_filing("TSLA", "10-K", "2023-01-31")  # Fetch specific filing
 """,
@@ -165,6 +169,16 @@ Example:
                 "form_type": {
                     "type": "string",
                     "description": "Form type (e.g., '10-K', '10-Q', '8-K')"
+                },
+                "start": {
+                    "type": "integer",
+                    "description": "Starting index (default: 0, latest filings first)",
+                    "default": 0
+                },
+                "max": {
+                    "type": "integer",
+                    "description": "Maximum filings to return (default: 15)",
+                    "default": 15
                 }
             },
             "required": ["ticker", "form_type"]

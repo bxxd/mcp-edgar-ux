@@ -143,7 +143,9 @@ class MCPHandlers:
     async def list_filings(
         self,
         ticker: str,
-        form_type: str
+        form_type: str,
+        start: int = 0,
+        max: int = 15
     ) -> dict[str, Any]:
         """List available filings (both cached and from SEC)"""
         try:
@@ -182,7 +184,9 @@ class MCPHandlers:
                 "filings": filings,
                 "count": len(filings),
                 "cached_count": len(cached),
-                "available_count": len(available)
+                "available_count": len(available),
+                "start": start,
+                "max": max
             }
 
         except Exception as e:
