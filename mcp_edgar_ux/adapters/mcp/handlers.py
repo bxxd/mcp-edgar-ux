@@ -26,7 +26,18 @@ class MCPHandlers:
     ) -> dict[str, Any]:
         """Fetch filing and return path + preview + metadata"""
         try:
-            # Use service from container
+            # Get list of cached filings to check if this one exists
+            cached_filings = await asyncio.to_thread(
+                self.container.cache.list_all,
+                ticker=ticker,
+                form_type=form_type
+            )
+            # Normalize format names: cache uses extensions (txt, md, html), API uses full names
+            format_map = {"text": "txt", "markdown": "md", "html": "html"}
+            normalized_format = format_map.get(format, format)
+            cached_dates = {(c.filing_date, c.format) for c in cached_filings}
+
+            # Fetch the filing (may use cache or download)
             filing_content = await asyncio.to_thread(
                 self.container.fetch_filing.execute,
                 ticker=ticker,
@@ -36,6 +47,9 @@ class MCPHandlers:
                 include_exhibits=True,
                 preview_lines=preview_lines
             )
+
+            # Check if this filing was already cached before we called the service
+            was_cached = (filing_content.filing.filing_date, normalized_format) in cached_dates
 
             # Generate preview if requested
             if preview_lines > 0:
@@ -51,6 +65,7 @@ class MCPHandlers:
             return {
                 "success": True,
                 "path": str(filing_content.path),
+                "cached": was_cached,
                 "preview": preview,
                 "metadata": {
                     "company": filing_content.filing.company_name,
