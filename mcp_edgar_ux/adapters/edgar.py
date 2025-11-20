@@ -3,7 +3,6 @@ EDGAR Adapter
 
 Implements FilingFetcher port using edgartools library.
 """
-from datetime import datetime
 from typing import Optional
 
 from edgar import Company, set_identity, get_current_filings

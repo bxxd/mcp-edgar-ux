@@ -4,7 +4,6 @@ Domain Models - Pure business entities
 No external dependencies. These represent the core business concepts.
 """
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import Optional
 

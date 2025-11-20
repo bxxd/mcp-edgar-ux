@@ -4,7 +4,6 @@ MCP Tool Handlers
 Shared handlers for MCP tools that use the hexagonal core.
 """
 import asyncio
-from pathlib import Path
 from typing import Any, Optional
 
 from ...container import Container

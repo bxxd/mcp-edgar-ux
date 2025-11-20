@@ -3,7 +3,6 @@ Minimal tests for hexagonal architecture
 
 Basic smoke tests to verify the architecture works.
 """
-import pytest
 from pathlib import Path
 
 from mcp_edgar_ux.core.domain import Filing, CachedFiling

@@ -6,7 +6,7 @@ domain models and ports, but contain no infrastructure concerns.
 """
 from typing import Optional
 
-from .domain import Filing, FilingContent, SearchResult, CachedFiling, SearchMatch
+from .domain import Filing, FilingContent, SearchResult, CachedFiling
 from .ports import FilingRepository, FilingFetcher, FilingSearcher
 
 
