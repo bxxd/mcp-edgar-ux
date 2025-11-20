@@ -24,6 +24,12 @@ from pathlib import Path
 
 from .container import Container
 from .adapters.mcp import TOOL_SCHEMAS, MCPHandlers
+from .formatters import (
+    format_fetch_filing,
+    format_search_filing,
+    format_list_filings,
+    format_list_cached,
+)
 
 
 def get_default_cache_dir() -> str:
@@ -82,22 +88,10 @@ async def fetch_command(
             preview_lines=preview_lines
         )
 
-        if result["success"]:
-            print(f"Success: Fetched {result['metadata']['ticker']} {result['metadata']['form_type']}")
-            print(f"Date: {result['metadata']['filing_date']}")
-            print(f"Path: {result['path']}")
-            print(f"Size: {result['metadata']['size_bytes']:,} bytes")
-            print(f"Lines: {result['metadata']['total_lines']:,}")
-            print()
-            if result.get('preview'):
-                print("Preview (first {} lines):".format(len(result['preview'])))
-                print("-" * 80)
-                for line in result['preview'][:20]:  # Show first 20 lines
-                    print(line)
-                if len(result['preview']) > 20:
-                    print(f"... ({len(result['preview']) - 20} more lines)")
-        else:
-            print(f"Error: {result['error']}", file=sys.stderr)
+        # Use BBG Lite formatter
+        print(format_fetch_filing(result))
+
+        if not result["success"]:
             return 1
 
         return 0
@@ -133,25 +127,10 @@ async def search_command(
             max_results=max_results
         )
 
-        if result["success"]:
-            print(f"Search: {result['pattern']}")
-            print(f"Filing: {result['metadata']['ticker']} {result['metadata']['form_type']} ({result['metadata']['filing_date']})")
-            print(f"Matches: {result['match_count']}")
-            print(f"File: {result['file_path']}")
-            print()
+        # Use BBG Lite formatter
+        print(format_search_filing(result))
 
-            for i, match in enumerate(result['matches'], 1):
-                print(f"Match {i} (line {match['line_number']}):")
-                if match['context_before']:
-                    for line in match['context_before']:
-                        print(f"  {line}")
-                print(f"→ {match['line']}")
-                if match['context_after']:
-                    for line in match['context_after']:
-                        print(f"  {line}")
-                print()
-        else:
-            print(f"Error: {result['error']}", file=sys.stderr)
+        if not result["success"]:
             return 1
 
         return 0
@@ -176,23 +155,10 @@ async def list_filings_command(
         # Call handler
         result = await handlers.list_filings(ticker=ticker, form_type=form_type)
 
-        if result["success"]:
-            print(f"{result['count']} {ticker.upper()} {form_type.upper()} filings available")
-            print(f"Cached: {result['cached_count']}")
-            print()
-            print(f"{'Date':<12} {'Cached':<8} {'Formats':<20}")
-            print("-" * 80)
+        # Use BBG Lite formatter
+        print(format_list_filings(result))
 
-            for filing in result['filings'][:20]:  # Show first 20
-                date = filing['filing_date']
-                cached = "✓" if filing.get('cached') else ""
-                formats = ", ".join(filing.get('cached', {}).keys()) if filing.get('cached') else ""
-                print(f"{date:<12} {cached:<8} {formats:<20}")
-
-            if result['count'] > 20:
-                print(f"... ({result['count'] - 20} more filings)")
-        else:
-            print(f"Error: {result['error']}", file=sys.stderr)
+        if not result["success"]:
             return 1
 
         return 0
@@ -217,25 +183,10 @@ async def list_cached_command(
         # Call handler
         result = await handlers.list_cached(ticker=ticker, form_type=form_type)
 
-        if result["success"]:
-            print(f"Cached filings: {result['count']}")
-            print(f"Disk usage: {result['disk_usage_mb']:.2f} MB")
-            print()
-            print(f"{'Ticker':<8} {'Form':<8} {'Date':<12} {'Format':<8} {'Size':<12}")
-            print("-" * 80)
+        # Use BBG Lite formatter
+        print(format_list_cached(result))
 
-            for filing in result['filings'][:50]:  # Show first 50
-                ticker_str = filing['ticker']
-                form = filing['form_type']
-                date = filing['filing_date']
-                fmt = filing['format']
-                size = f"{filing['size_bytes']:,} bytes"
-                print(f"{ticker_str:<8} {form:<8} {date:<12} {fmt:<8} {size:<12}")
-
-            if result['count'] > 50:
-                print(f"... ({result['count'] - 50} more filings)")
-        else:
-            print(f"Error: {result['error']}", file=sys.stderr)
+        if not result["success"]:
             return 1
 
         return 0

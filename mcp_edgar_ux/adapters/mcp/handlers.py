@@ -206,7 +206,8 @@ class MCPHandlers:
                 "success": True,
                 "filings": formatted_filings,
                 "count": len(formatted_filings),
-                "disk_usage_mb": round(disk_usage / 1024 / 1024, 2)
+                "disk_usage_mb": round(disk_usage / 1024 / 1024, 2),
+                "cache_dir": str(self.container.cache.cache_dir)
             }
 
         except Exception as e:

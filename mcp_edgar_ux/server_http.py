@@ -26,6 +26,12 @@ from starlette.routing import Mount, Route
 
 from .container import Container
 from .adapters.mcp import TOOL_SCHEMAS, MCPHandlers
+from .formatters import (
+    format_fetch_filing,
+    format_search_filing,
+    format_list_filings,
+    format_list_cached,
+)
 
 # Configuration
 DEFAULT_PORT = 5002
@@ -124,9 +130,21 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             text=f"Unknown tool: {name}"
         )]
 
-    # Format result as BBG Lite text (could be extracted to formatters later)
-    import json
-    formatted_text = json.dumps(result, indent=2)
+    # Format result as BBG Lite text
+    formatters = {
+        "fetch_filing": format_fetch_filing,
+        "search_filing": format_search_filing,
+        "list_filings": format_list_filings,
+        "list_cached": format_list_cached,
+    }
+
+    formatter = formatters.get(name)
+    if formatter:
+        formatted_text = formatter(result)
+    else:
+        # Fallback to JSON for unknown tools
+        import json
+        formatted_text = json.dumps(result, indent=2)
 
     return [TextContent(
         type="text",
