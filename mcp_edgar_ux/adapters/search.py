@@ -126,9 +126,9 @@ class GrepSearcher(FilingSearcher):
                             ctx_parts = lines[j].split('-', 1)
                             if len(ctx_parts) > 1:
                                 context_after.append(ctx_parts[1])
-                            j += 1
                         else:
                             break
+                        j += 1
 
                     matches.append(SearchMatch(
                         line_number=line_num,
