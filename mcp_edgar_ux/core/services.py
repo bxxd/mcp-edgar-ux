@@ -1,0 +1,186 @@
+"""
+Application Services - Use cases that orchestrate domain logic
+
+These are the entry points to the core. They coordinate between
+domain models and ports, but contain no infrastructure concerns.
+"""
+from typing import Optional
+
+from .domain import Filing, FilingContent, SearchResult, CachedFiling, SearchMatch
+from .ports import FilingRepository, FilingFetcher, FilingSearcher
+
+
+class FetchFilingService:
+    """Use case: Fetch a SEC filing and cache it"""
+
+    def __init__(
+        self,
+        repository: FilingRepository,
+        fetcher: FilingFetcher,
+        searcher: FilingSearcher
+    ):
+        self.repository = repository
+        self.fetcher = fetcher
+        self.searcher = searcher
+
+    def execute(
+        self,
+        ticker: str,
+        form_type: str,
+        date: Optional[str] = None,
+        format: str = "text",
+        include_exhibits: bool = True,
+        preview_lines: int = 50
+    ) -> FilingContent:
+        """
+        Fetch filing and cache it.
+
+        Returns FilingContent with path, preview, and metadata.
+        """
+        # Get filing metadata
+        filing = self.fetcher.get_latest(ticker, form_type, date)
+
+        # Check if already cached
+        cached_path = self.repository.get(ticker, form_type, filing.filing_date, format)
+
+        if cached_path:
+            # Read from cache
+            content = cached_path.read_text(encoding='utf-8')
+            total_lines = self.searcher.count_lines(cached_path)
+        else:
+            # Download from SEC
+            content = self.fetcher.fetch(filing, format, include_exhibits)
+
+            # Save to cache
+            filing_content = FilingContent(
+                filing=filing,
+                content=content,
+                format=format,
+                path=None,  # Will be set by repository
+                size_bytes=len(content.encode('utf-8')),
+                total_lines=content.count('\n') + 1
+            )
+            cached_path = self.repository.save(filing_content)
+            total_lines = filing_content.total_lines
+
+        # Return with metadata
+        return FilingContent(
+            filing=filing,
+            content=content,
+            format=format,
+            path=cached_path,
+            size_bytes=cached_path.stat().st_size,
+            total_lines=total_lines
+        )
+
+
+class ListFilingsService:
+    """Use case: List available filings (both cached and from SEC)"""
+
+    def __init__(
+        self,
+        repository: FilingRepository,
+        fetcher: FilingFetcher
+    ):
+        self.repository = repository
+        self.fetcher = fetcher
+
+    def execute(self, ticker: str, form_type: str) -> tuple[list[Filing], list[CachedFiling]]:
+        """
+        List all available filings and which ones are cached.
+
+        Returns:
+            (available_filings, cached_filings)
+        """
+        # Get all available from SEC
+        available = self.fetcher.list_available(ticker, form_type)
+
+        # Get cached filings for this ticker/form
+        cached = self.repository.list_all(ticker, form_type)
+
+        return available, cached
+
+
+class SearchFilingService:
+    """Use case: Search for pattern within a filing"""
+
+    def __init__(
+        self,
+        repository: FilingRepository,
+        fetcher: FilingFetcher,
+        searcher: FilingSearcher,
+        fetch_service: FetchFilingService
+    ):
+        self.repository = repository
+        self.fetcher = fetcher
+        self.searcher = searcher
+        self.fetch_service = fetch_service
+
+    def execute(
+        self,
+        ticker: str,
+        form_type: str,
+        pattern: str,
+        date: Optional[str] = None,
+        format: str = "text",
+        context_lines: int = 2,
+        max_results: int = 20,
+        offset: int = 0
+    ) -> SearchResult:
+        """
+        Search for pattern in filing.
+
+        Auto-fetches and caches filing if not already cached.
+        """
+        # Get filing metadata
+        filing = self.fetcher.get_latest(ticker, form_type, date)
+
+        # Ensure filing is cached
+        cached_path = self.repository.get(ticker, form_type, filing.filing_date, format)
+
+        if not cached_path:
+            # Fetch and cache it first
+            filing_content = self.fetch_service.execute(
+                ticker, form_type, date, format, include_exhibits=True, preview_lines=0
+            )
+            cached_path = filing_content.path
+
+        # Search in the cached file
+        matches = self.searcher.search(
+            cached_path,
+            pattern,
+            context_lines,
+            max_results,
+            offset
+        )
+
+        return SearchResult(
+            filing=filing,
+            pattern=pattern,
+            matches=matches,
+            total_matches=len(matches),
+            file_path=cached_path
+        )
+
+
+class ListCachedService:
+    """Use case: List cached filings"""
+
+    def __init__(self, repository: FilingRepository):
+        self.repository = repository
+
+    def execute(
+        self,
+        ticker: Optional[str] = None,
+        form_type: Optional[str] = None
+    ) -> tuple[list[CachedFiling], int]:
+        """
+        List cached filings and disk usage.
+
+        Returns:
+            (cached_filings, disk_usage_bytes)
+        """
+        filings = self.repository.list_all(ticker, form_type)
+        disk_usage = self.repository.get_disk_usage()
+
+        return filings, disk_usage

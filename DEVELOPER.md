@@ -51,19 +51,32 @@ Python 3.11+
 └── BeautifulSoup  → XBRL/XML tag stripping
 ```
 
-### Project Structure
+### Project Structure (Hexagonal Architecture)
 
 ```
 mcp-edgar-ux/
 ├── mcp_edgar_ux/
-│   ├── core.py          → Pure async business logic (fetch, search, list)
-│   ├── server_http.py   → MCP HTTP/SSE server (Starlette)
-│   └── cli.py           → CLI for testing tools (no MCP restart needed)
-├── cli                  → Wrapper script (poetry run python -m mcp_edgar_ux.cli)
-├── dev.py               → Dev mode with auto-restart (watchdog)
-├── TASKS.md             → Implementation roadmap (Phases 1-7)
-├── DEVELOPER.md         → This file
-└── CLAUDE.md            → Workspace context
+│   ├── core/                    # BUSINESS LOGIC (domain + ports + services)
+│   │   ├── domain.py            # Domain models (Filing, SearchResult, etc.)
+│   │   ├── ports.py             # Port interfaces (Repository, Fetcher, Searcher)
+│   │   └── services.py          # Use cases (FetchFilingService, etc.)
+│   │
+│   ├── adapters/                # INFRASTRUCTURE (implementations)
+│   │   ├── filesystem.py        # Filesystem cache (implements Repository)
+│   │   ├── edgar.py             # EDGAR fetcher (implements Fetcher)
+│   │   ├── search.py            # Grep searcher (implements Searcher)
+│   │   └── mcp/                 # MCP adapters
+│   │       ├── tool_definitions.py  # Shared tool schemas (DRY)
+│   │       └── handlers.py      # Shared MCP handlers
+│   │
+│   ├── container.py             # Dependency injection container
+│   ├── server_http.py           # MCP HTTP/SSE server (170 lines, -81%)
+│   └── cli.py                   # CLI for testing (uses container)
+│
+├── cli                          # Wrapper script
+├── dev.py                       # Dev mode with auto-restart
+├── README.md                    # User documentation
+└── DEVELOPER.md                 # This file
 ```
 
 ### Async Architecture
@@ -166,12 +179,11 @@ poetry install
 ./cli search TSLA 10-K "vehicle"        # Search filing
 
 # Run MCP server (for Claude Code integration)
-make server                             # Start on port 5002
+make server                             # Start in background (port 5002)
 make logs                               # Tail server logs
-make kill                               # Stop server
 
-# Development mode (auto-restart on changes)
-./dev.py                                # Watchdog-based auto-restart
+# Development mode (auto-restart on file changes)
+make dev                                # Server restarts when you edit files
 ```
 
 ### Testing Pattern
@@ -250,37 +262,36 @@ CACHE_DIR=/tmp/sec-filings-test ./cli fetch TSLA 10-K
 
 ---
 
-## Implementation Roadmap
+## Implementation Status
 
-See `TASKS.md` for complete 7-phase roadmap.
+**Architecture**: Hexagonal (Ports & Adapters) ✅
+- Clean separation: core → adapters → servers
+- Dependency injection via Container
+- 81% reduction in server code (886 → 170 lines)
+- Eliminated ~300 lines of duplication
 
-**Status**: Phases 1-6 complete, Phase 7 (testing) in progress
+**Core Features**: Complete ✅
+- Async architecture with asyncio.to_thread()
+- SEC API integration (historical + current filings fix)
+- Fetch filing with preview (first N lines)
+- Search filing (grep-based with line numbers)
+- List filings (discovery tool)
+- List cached (cache inspection)
 
-**Phase 1**: Core Async Conversion ✅
-- All core functions async
-- asyncio.to_thread() for blocking I/O
+**MCP Integration**: Complete ✅
+- HTTP/SSE server (170 lines, port 5002)
+- Four tools: fetch_filing, search_filing, list_filings, list_cached
+- Shared tool definitions (DRY)
+- BBG Lite formatted output
 
-**Phase 2**: SEC API Integration ✅
-- list_available() queries SEC
-- list_filings() merges cached + available
+**CLI**: Complete ✅
+- Commands: list-tools, fetch, search, list-filings, list-cached
+- Uses same hexagonal core as MCP server
+- Fast iteration without server restart
 
-**Phase 3**: Fetch Filing with Preview ✅
-- preview_lines parameter
-- First N lines with line numbers
-
-**Phase 4**: Create list_filings Tool ✅
-- Discovery tool for available filings
-
-**Phase 5**: MCP Tool Consolidation ✅
-- Four tools: fetch, search, list_filings, list_cached
-- Clear descriptions, affordances
-
-**Phase 6**: CLI Updates ✅
-- Commands: list-tools, fetch, search, list, list-filings
-
-**Phase 7**: Testing (In Progress)
-- CLI tested ✅
-- MCP server testing next
+**Testing**: Needs Update
+- CLI tested and working ✅
+- Unit tests need update for hexagonal architecture 🔄
 
 ---
 
@@ -296,10 +307,12 @@ See `TASKS.md` for complete 7-phase roadmap.
 - Form theories, gather evidence from logs/errors
 - Follow the data, don't rush to code
 
-### Divide the World (Separation of Concerns)
-- `core.py` = Pure business logic (no MCP, no HTTP)
-- `server_http.py` = MCP protocol (thin wrapper)
-- `cli.py` = Testing interface (no MCP restart needed)
+### Hexagonal Architecture (Ports & Adapters)
+- `core/` = Pure business logic (domain models, ports, services)
+- `adapters/` = Infrastructure implementations (filesystem, edgar, search, mcp)
+- `container.py` = Dependency injection (wires everything together)
+- `server_http.py` = MCP protocol delivery (170 lines, thin wrapper)
+- `cli.py` = Testing interface (uses same container as server)
 
 ### DRY (Don't Repeat Yourself)
 - Single BBG Lite formatter per output type
@@ -319,54 +332,75 @@ See `TASKS.md` for complete 7-phase roadmap.
 
 ### Adding a New Tool
 
-1. **Add core function to core.py** (pure async, no MCP):
+1. **Add service to core/services.py** (business logic):
 ```python
-async def new_tool(param: str, cache_dir: str = "/tmp/sec-filings") -> Dict[str, Any]:
-    # Business logic here (use asyncio.to_thread for blocking I/O)
-    return {"success": True, "data": ...}
+class NewToolService:
+    def __init__(self, repository: FilingRepository, fetcher: FilingFetcher):
+        self.repository = repository
+        self.fetcher = fetcher
+
+    def execute(self, param: str) -> dict:
+        # Business logic here
+        return {"success": True, "data": ...}
 ```
 
-2. **Add formatter to server_http.py** (BBG Lite design):
+2. **Wire up in container.py** (dependency injection):
 ```python
-def format_new_tool_result(result: dict) -> str:
-    # Dense, scannable output with affordances
-    lines = [
-        "HEADER",
-        "─" * 70,
-        "Data here",
-        "",
-        "Try: next_step(...)"
+class Container:
+    def __init__(self, cache_dir, user_agent):
+        # ... existing code ...
+        self.new_tool = NewToolService(
+            repository=self.cache,
+            fetcher=self.fetcher
+        )
+```
+
+3. **Add tool definition to adapters/mcp/tool_definitions.py**:
+```python
+TOOL_SCHEMAS["new_tool"] = {
+    "name": "new_tool",
+    "description": "Clear description with examples",
+    "inputSchema": {...}
+}
+```
+
+4. **Add handler to adapters/mcp/handlers.py**:
+```python
+async def new_tool(self, param: str) -> dict:
+    result = await asyncio.to_thread(
+        self.container.new_tool.execute,
+        param=param
+    )
+    return result
+```
+
+5. **Add to server_http.py** (MCP tool registration):
+```python
+@mcp_server.list_tools()
+async def list_tools():
+    return [
+        # ... existing tools ...
+        Tool(**TOOL_SCHEMAS["new_tool"]),
     ]
-    return "\n".join(lines)
+
+@mcp_server.call_tool()
+async def call_tool(name: str, arguments: dict):
+    # ... existing tools ...
+    elif name == "new_tool":
+        result = await handlers.new_tool(...)
 ```
 
-3. **Add MCP tool definition** (in list_tools()):
-```python
-Tool(
-    name="new_tool",
-    description="Clear description with examples",
-    inputSchema={...}
-)
-```
-
-4. **Add tool handler** (in call_tool()):
-```python
-if name == "new_tool":
-    result = await core_new_tool(...)
-    formatted = format_new_tool_result(result)
-    return [TextContent(type="text", text=formatted)]
-```
-
-5. **Add CLI command** (in cli.py):
+6. **Add CLI command** (in cli.py):
 ```python
 async def new_tool_command(...) -> int:
-    result = await core_new_tool(...)
-    output = format_new_tool_result(result)
-    print(output)
+    container = Container(cache_dir=cache_dir, user_agent=get_user_agent())
+    handlers = MCPHandlers(container)
+    result = await handlers.new_tool(...)
+    print(json.dumps(result, indent=2))
     return 0
 ```
 
-6. **Test via CLI first**:
+7. **Test via CLI first**:
 ```bash
 ./cli new-tool PARAM
 ```
@@ -414,19 +448,26 @@ print(f"[DEBUG] Completed: {result}", flush=True)
 
 ## Key Files
 
-**Core Implementation**:
-- `mcp_edgar_ux/core.py` - Business logic (fetch, search, list)
-- `mcp_edgar_ux/server_http.py` - MCP HTTP/SSE server
+**Core Implementation** (Hexagonal Architecture):
+- `mcp_edgar_ux/core/domain.py` - Domain models (Filing, SearchResult, etc.)
+- `mcp_edgar_ux/core/ports.py` - Port interfaces (Repository, Fetcher, Searcher)
+- `mcp_edgar_ux/core/services.py` - Use cases (business logic)
+- `mcp_edgar_ux/adapters/filesystem.py` - Filesystem cache adapter
+- `mcp_edgar_ux/adapters/edgar.py` - EDGAR API adapter
+- `mcp_edgar_ux/adapters/search.py` - Grep search adapter
+- `mcp_edgar_ux/adapters/mcp/tool_definitions.py` - Shared MCP tool schemas
+- `mcp_edgar_ux/adapters/mcp/handlers.py` - Shared MCP handlers
+- `mcp_edgar_ux/container.py` - Dependency injection container
+- `mcp_edgar_ux/server_http.py` - MCP HTTP/SSE server (170 lines)
 - `mcp_edgar_ux/cli.py` - CLI for testing
 
 **Documentation**:
-- `TASKS.md` - Implementation roadmap (7 phases)
-- `DEVELOPER.md` - This file (architecture, patterns)
-- `CLAUDE.md` - Workspace context (references this file)
+- `README.md` - User documentation, installation, usage
+- `DEVELOPER.md` - This file (architecture, patterns, development)
 
 **Development**:
-- `dev.py` - Auto-restart server on file changes
-- `Makefile` - Server management (start, stop, logs)
+- `Makefile` - All development commands (dev, server, logs, test, lint)
+- `cli` - Wrapper script for CLI
 
 **Configuration**:
 - `pyproject.toml` - Poetry dependencies
