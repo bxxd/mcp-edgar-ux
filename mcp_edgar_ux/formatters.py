@@ -163,19 +163,19 @@ def format_list_filings(result: dict[str, Any]) -> str:
         ────────────────────────────────────────────────────────────────
         83 filings available (2 cached)
 
-        Date         Cached   Formats
+        Date         Location (if cached)
         ────────────────────────────────────────────────────────────────
-        2025-11-19
-        2025-08-27   ✓        txt
-        2025-04-30   ✓        txt, md
-        2024-01-29
+        2025-11-19   (not cached - will download on demand)
+        2025-08-27   /var/idio-mcp-cache/sec-filings/TSLA/10-K/2025-08-27.txt
+        2025-04-30   /var/idio-mcp-cache/sec-filings/TSLA/10-K/2025-04-30.txt
+        2024-01-29   (not cached - will download on demand)
         ...
 
         ────────────────────────────────────────────────────────────────
-        ✓ Cached filings available locally (instant access)
-          Other filings will be downloaded on demand from SEC
+        Showing 15 of 83 filings (2 cached)
 
-        Data source: SEC EDGAR | Powered by edgartools
+        Try: fetch_filing(ticker, form, date) | search_filing(ticker, form, pattern)
+             Read(path) to read cached filing directly
     """
     if not result.get("success"):
         return f"ERROR: {result.get('error', 'Unknown error')}"
@@ -189,40 +189,49 @@ def format_list_filings(result: dict[str, Any]) -> str:
     # Header
     lines.append(f"{ticker} {form_type} FILINGS AVAILABLE")
     lines.append("─" * 70)
-    lines.append(f"FILED       CACHED  SIZE     [ACTIONS]")
+    lines.append(f"FILED       LOCATION (if cached)")
+    lines.append("─" * 70)
 
     # Table rows (first 15)
     for filing in result['filings'][:15]:
         date = filing['filing_date'][:10].ljust(10)
-        cached = "✓" if filing.get('cached') else " "
-
-        # Size (if cached) - get size from cached info
-        size_bytes = None
         cached_info = filing.get('cached', {})
+
         if cached_info and isinstance(cached_info, dict):
-            # Get size from first available format
-            for fmt_data in cached_info.values():
-                if isinstance(fmt_data, dict) and 'size_bytes' in fmt_data:
-                    size_bytes = fmt_data['size_bytes']
-                    break
+            # Get first available format path (prefer txt, then md, then any)
+            path = None
+            for fmt in ['txt', 'md']:
+                if fmt in cached_info:
+                    fmt_data = cached_info[fmt]
+                    if isinstance(fmt_data, dict) and 'path' in fmt_data:
+                        path = fmt_data['path']
+                        break
 
-        if size_bytes:
-            size_kb = size_bytes / 1024
-            size_str = f"{size_kb:.0f} KB".ljust(8)
+            # If no txt/md, get first available format
+            if not path:
+                for fmt_data in cached_info.values():
+                    if isinstance(fmt_data, dict) and 'path' in fmt_data:
+                        path = fmt_data['path']
+                        break
+
+            if path:
+                lines.append(f"{date}  {path}")
+            else:
+                lines.append(f"{date}  (not cached - will download on demand)")
         else:
-            size_str = "-".ljust(8)
-
-        lines.append(f"{date}  {cached}       {size_str}")
+            lines.append(f"{date}  (not cached - will download on demand)")
 
     # Show remaining count
     if result['count'] > 15:
-        lines.append(f"\n... {result['count'] - 15} more filings")
+        lines.append("")
+        lines.append(f"... {result['count'] - 15} more filings")
 
     # Footer
     lines.append("")
     lines.append(f"Showing {min(result['count'], 15)} of {result['count']} filings ({result['cached_count']} cached)")
     lines.append("")
     lines.append(f"Try: fetch_filing(ticker, form, date) | search_filing(ticker, form, pattern)")
+    lines.append(f"     Read(path) to read cached filing directly")
 
     return "\n".join(lines)
 
