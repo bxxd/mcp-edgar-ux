@@ -195,6 +195,12 @@ def format_list_filings(result: dict[str, Any]) -> str:
     end = min(start + max_results, total_count)
     filings_to_show = result['filings'][start:end]
 
+    # Debug logging
+    import sys
+    print(f"[FORMATTER DEBUG] start={start}, max={max_results}, total={total_count}, end={end}, showing {len(filings_to_show)} filings", file=sys.stderr)
+    if filings_to_show:
+        print(f"[FORMATTER DEBUG] First date: {filings_to_show[0]['filing_date']}, Last date: {filings_to_show[-1]['filing_date']}", file=sys.stderr)
+
     # Header
     lines.append(f"{ticker} {form_type} FILINGS AVAILABLE")
     lines.append("─" * 70)

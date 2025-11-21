@@ -115,7 +115,9 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     elif name == "list_filings":
         result = await handlers.list_filings(
             ticker=arguments["ticker"],
-            form_type=arguments["form_type"]
+            form_type=arguments["form_type"],
+            start=arguments.get("start", 0),
+            max=arguments.get("max", 15)
         )
 
     elif name == "list_cached":
