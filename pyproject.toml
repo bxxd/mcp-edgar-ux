@@ -9,7 +9,7 @@ packages = [{include = "mcp_edgar_ux"}]
 [tool.poetry.dependencies]
 python = "^3.10"
 mcp = "^1.0.0"
-edgartools = "^4.0.0"
+edgartools = {git = "https://github.com/bxxd/forked-edgartools.git"}
 markdownify = "^0.13.0"
 
 [tool.poetry.scripts]
