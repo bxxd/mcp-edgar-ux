@@ -21,7 +21,7 @@ class MCPHandlers:
         form_type: str,
         date: Optional[str] = None,
         format: str = "text",
-        preview_lines: int = 50
+        preview_lines: int = 200
     ) -> dict[str, Any]:
         """Fetch filing and return path + preview + metadata"""
         try:
@@ -50,22 +50,11 @@ class MCPHandlers:
             # Check if this filing was already cached before we called the service
             was_cached = (filing_content.filing.filing_date, normalized_format) in cached_dates
 
-            # Generate preview if requested
-            if preview_lines > 0:
-                preview, total_lines = await asyncio.to_thread(
-                    self.container.searcher.read_preview,
-                    filing_content.path,
-                    preview_lines
-                )
-            else:
-                preview = []
-                total_lines = filing_content.total_lines
-
+            # No preview - agent should use Read tool on the returned path
             return {
                 "success": True,
                 "path": str(filing_content.path),
                 "cached": was_cached,
-                "preview": preview,
                 "metadata": {
                     "company": filing_content.filing.company_name,
                     "ticker": filing_content.filing.ticker,
@@ -75,7 +64,7 @@ class MCPHandlers:
                     "sec_url": filing_content.filing.sec_url,
                     "format": filing_content.format,
                     "size_bytes": filing_content.size_bytes,
-                    "total_lines": total_lines,
+                    "total_lines": filing_content.total_lines,
                 }
             }
 

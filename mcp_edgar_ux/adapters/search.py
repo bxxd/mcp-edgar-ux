@@ -83,8 +83,8 @@ class GrepSearcher(FilingSearcher):
             for i, line in enumerate(f, 1):
                 if i > num_lines:
                     break
-                # Format like Read tool: "  LINE→content"
-                lines.append(f"{i:6d}→{line.rstrip()}")
+                # Format like grep -n: "LINE: content" (up to 9999 lines)
+                lines.append(f"{i:4d}: {line.rstrip()}")
 
         return lines, total_lines
 

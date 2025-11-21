@@ -21,13 +21,7 @@ def format_fetch_filing(result: dict[str, Any]) -> str:
 
         PATH: /var/idio-mcp-cache/sec-filings/TSLA/10-K/2025-04-30.txt
 
-        PREVIEW (first 50 lines):
-        ──────────────────────────────────────────────────────────────────────
-             1→UNITED STATES
-             2→SECURITIES AND EXCHANGE COMMISSION
-             3→...
-
-        Try: search_filing("TSLA", "10-K", "SEARCH TERM") | Read(path, offset=100, limit=100)
+        Try: Read(path, offset=0, limit=50) | search_filing("TSLA", "10-K", "SEARCH TERM")
     """
     if not result.get("success"):
         return f"ERROR: {result.get('error', 'Unknown error')}"
@@ -56,17 +50,9 @@ def format_fetch_filing(result: dict[str, Any]) -> str:
     # Path
     lines.append(f"PATH: {result['path']}")
 
-    # Preview
-    if result.get('preview'):
-        lines.append("")
-        lines.append(f"PREVIEW (first {len(result['preview'])} lines):")
-        lines.append("─" * 70)
-        for line in result['preview']:
-            lines.append(line)
-
     # Affordances
     lines.append("")
-    lines.append(f'Try: search_filing("{meta["ticker"]}", "{meta["form_type"]}", "SEARCH TERM") | Read(path, offset=100, limit=100)')
+    lines.append(f'Try: Read(path, offset=0, limit=50) | search_filing("{meta["ticker"]}", "{meta["form_type"]}", "SEARCH TERM")')
 
     return "\n".join(lines)
 
@@ -79,11 +65,11 @@ def format_search_filing(result: dict[str, Any]) -> str:
 
         MATCHES (12 found | 10,234 lines)
         ──────────────────────────────────────────────────────────────────────
-            1234→matching line with supply chain
-            1235→context after
+          1234: matching line with supply chain
+          1235: context after
 
-            2456→another matching line
-            2457→more context
+          2456: another matching line
+          2457: more context
 
         PATH: /var/idio-mcp-cache/sec-filings/TSLA/10-K/2025-04-30.txt
         Try: Read(path, offset=LINE, limit=50) | search_filing(..., pattern="OTHER")
@@ -110,8 +96,10 @@ Try: Different search term | Read(path) for full filing
 
     lines = []
 
-    # Header
+    # Header with filename
+    filename = file_path.split('/')[-1] if '/' in file_path else file_path
     lines.append(f"{meta['ticker'].upper()} {meta['form_type'].upper()} | {meta['filing_date']} | SEARCH \"{pattern}\"")
+    lines.append(f"FILE: {filename}")
     lines.append("")
 
     # Summary with correct range
@@ -141,15 +129,15 @@ Try: Different search term | Read(path) for full filing
         # Context before (with calculated line numbers)
         for j, ctx_line in enumerate(context_before):
             ctx_line_num = line_num - len(context_before) + j
-            lines.append(f"  {ctx_line_num:>6}→{ctx_line}")
+            lines.append(f"  {ctx_line_num:>4}: {ctx_line}")
 
         # Matching line
-        lines.append(f"  {line_num:>6}→{match['line']}")
+        lines.append(f"  {line_num:>4}: {match['line']}")
 
         # Context after (with calculated line numbers)
         for j, ctx_line in enumerate(context_after, 1):
             ctx_line_num = line_num + j
-            lines.append(f"  {ctx_line_num:>6}→{ctx_line}")
+            lines.append(f"  {ctx_line_num:>4}: {ctx_line}")
 
     lines.append("")
     lines.append(f"PATH: {file_path}")
