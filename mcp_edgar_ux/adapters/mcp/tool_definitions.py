@@ -56,8 +56,8 @@ Example:
                 },
                 "preview_lines": {
                     "type": "integer",
-                    "description": "Number of lines to preview (default: 50, 0 to disable)",
-                    "default": 50
+                    "description": "Deprecated: Preview removed. Use Read(path, offset=0, limit=N) instead.",
+                    "default": 0
                 }
             },
             "required": ["ticker", "form_type"]
