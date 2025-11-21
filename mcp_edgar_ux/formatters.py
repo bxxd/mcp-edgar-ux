@@ -234,7 +234,7 @@ def format_list_filings(result: dict[str, Any]) -> str:
 
     # Footer
     lines.append("")
-    lines.append(f"Showing {start + 1}-{end} of {total_count} filings ({result['cached_count']} cached)")
+    lines.append(f"Showing {start + 1}-{start + len(filings_to_show)} of {total_count} filings ({result['cached_count']} cached)")
     lines.append("")
     lines.append(f"Try: fetch_filing(ticker, form, date) | search_filing(ticker, form, pattern)")
     lines.append(f"     Read(path) to read cached filing directly")
