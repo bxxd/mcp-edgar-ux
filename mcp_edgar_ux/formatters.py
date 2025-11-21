@@ -82,7 +82,6 @@ def format_search_filing(result: dict[str, Any]) -> str:
     match_count = result['match_count']
     file_path = result['file_path']
     offset = result.get('offset', 0)
-    max_results = result.get('max_results', 20)
 
     # No matches
     if match_count == 0:
