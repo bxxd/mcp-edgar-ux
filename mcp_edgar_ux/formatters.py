@@ -95,6 +95,8 @@ def format_search_filing(result: dict[str, Any]) -> str:
     pattern = result['pattern']
     match_count = result['match_count']
     file_path = result['file_path']
+    offset = result.get('offset', 0)
+    max_results = result.get('max_results', 20)
 
     # No matches
     if match_count == 0:
@@ -112,10 +114,16 @@ Try: Different search term | Read(path) for full filing
     lines.append(f"{meta['ticker'].upper()} {meta['form_type'].upper()} | {meta['filing_date']} | SEARCH \"{pattern}\"")
     lines.append("")
 
-    # Summary
+    # Summary with correct range
     returned = len(result['matches'])
+    start_idx = offset + 1
+    end_idx = offset + returned
+
     if match_count > returned:
-        range_str = f" (showing first {returned})"
+        if offset == 0:
+            range_str = f" (showing first {returned})"
+        else:
+            range_str = f" (showing {start_idx}-{end_idx})"
     else:
         range_str = ""
     lines.append(f"MATCHES ({match_count} found{range_str})")

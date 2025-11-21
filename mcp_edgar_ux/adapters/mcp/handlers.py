@@ -126,6 +126,8 @@ class MCPHandlers:
                 "pattern": result.pattern,
                 "matches": formatted_matches,
                 "match_count": result.total_matches,
+                "offset": offset,
+                "max_results": max_results,
                 "file_path": str(result.file_path),
                 "metadata": {
                     "ticker": result.filing.ticker,
