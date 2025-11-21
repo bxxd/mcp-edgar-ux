@@ -20,8 +20,8 @@ class GrepSearcher(FilingSearcher):
         context_lines: int = 2,
         max_results: int = 20,
         offset: int = 0
-    ) -> list[SearchMatch]:
-        """Search for pattern in filing, return matches with context"""
+    ) -> tuple[list[SearchMatch], int]:
+        """Search for pattern in filing, return (matches, total_count)"""
         # Use grep with extended regex, case-insensitive, line numbers, context
         try:
             result = subprocess.run(
@@ -44,9 +44,10 @@ class GrepSearcher(FilingSearcher):
 
             # Parse grep output
             matches = self._parse_grep_output(result.stdout, context_lines)
+            total_count = len(matches)
 
             # Apply offset and max_results
-            return matches[offset:offset + max_results]
+            return matches[offset:offset + max_results], total_count
 
         except subprocess.TimeoutExpired:
             raise RuntimeError("Search timed out after 30 seconds")
