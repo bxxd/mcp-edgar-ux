@@ -133,12 +133,15 @@ class MCPHandlers:
 
     async def list_filings(
         self,
-        ticker: str,
+        ticker: Optional[str],
         form_type: str,
         start: int = 0,
         max: int = 15
     ) -> dict[str, Any]:
-        """List available filings (both cached and from SEC)"""
+        """List available filings (both cached and from SEC)
+
+        If ticker is None, returns latest filings across all companies.
+        """
         try:
             # Use service from container
             available, cached = await asyncio.to_thread(
@@ -147,12 +150,13 @@ class MCPHandlers:
                 form_type=form_type
             )
 
-            # Build map of cached dates by format
+            # Build map of cached filings by (ticker, filing_date, format)
             cached_map = {}
             for c in cached:
-                if c.filing_date not in cached_map:
-                    cached_map[c.filing_date] = {}
-                cached_map[c.filing_date][c.format] = {
+                key = (c.ticker, c.filing_date)
+                if key not in cached_map:
+                    cached_map[key] = {}
+                cached_map[key][c.format] = {
                     "path": str(c.path),
                     "size_bytes": c.size_bytes
                 }
@@ -160,11 +164,13 @@ class MCPHandlers:
             # Merge available with cached info
             filings = []
             for filing in available:
-                cached_info = cached_map.get(filing.filing_date, {})
+                key = (filing.ticker, filing.filing_date)
+                cached_info = cached_map.get(key, {})
                 filings.append({
                     "ticker": filing.ticker,
                     "form_type": filing.form_type,
                     "filing_date": filing.filing_date,
+                    "company_name": filing.company_name,
                     "accession_number": filing.accession_number,
                     "sec_url": filing.sec_url,
                     "cached": cached_info

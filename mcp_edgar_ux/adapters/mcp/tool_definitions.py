@@ -134,23 +134,26 @@ Example:
     "list_filings": {
         "name": "list_filings",
         "description": """
-List available SEC filings for ticker/form (both cached + available from SEC).
+List available SEC filings (both cached + available from SEC).
 
 Discovery tool - shows which filings exist and which are already cached.
 Use this BEFORE fetch_filing to see what's available.
 
 Args:
-- ticker: Stock ticker (e.g., "TSLA", "AAPL")
+- ticker: Optional stock ticker (e.g., "TSLA", "AAPL"). If omitted, shows latest filings across all companies.
 - form_type: Form type (e.g., "10-K", "10-Q", "8-K")
 - start: Starting index (default: 0, latest filings first)
 - max: Maximum filings to return (default: 15)
 
 Returns:
 - filings: List of available filings (sorted by date, newest first)
-- Each filing shows: filing_date, cached (✓ or blank), size (if cached)
+- Each filing shows: ticker, filing_date, cached (✓ or blank), size (if cached)
 - Shows which filings need to be fetched vs already cached
 
 Example:
+  list_filings(form_type="10-K")
+  → Shows first 15 recent 10-K filings across all companies
+
   list_filings(ticker="TSLA", form_type="10-K")
   → Shows first 15 TSLA 10-K filings (latest)
 
@@ -164,7 +167,7 @@ Example:
             "properties": {
                 "ticker": {
                     "type": "string",
-                    "description": "Stock ticker (e.g., 'TSLA', 'AAPL')"
+                    "description": "Optional stock ticker (e.g., 'TSLA', 'AAPL'). Omit to see latest filings across all companies."
                 },
                 "form_type": {
                     "type": "string",
@@ -181,7 +184,7 @@ Example:
                     "default": 15
                 }
             },
-            "required": ["ticker", "form_type"]
+            "required": ["form_type"]
         }
     },
     "list_cached": {

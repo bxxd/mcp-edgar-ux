@@ -8,7 +8,8 @@ Usage:
   ./cli fetch TSLA 10-K --date 2024-01-01 # Fetch specific date
   ./cli fetch TSLA 10-K --format markdown # Fetch as markdown
   ./cli search TSLA 10-K "supply chain"   # Search within filing
-  ./cli list-filings TSLA 10-K            # List available filings
+  ./cli list-filings 10-K                 # List latest 10-K filings across all companies
+  ./cli list-filings 10-K --ticker TSLA   # List available TSLA 10-K filings
   ./cli list-cached                       # List all cached filings
   ./cli list-cached --ticker TSLA         # List TSLA cached filings
 
@@ -142,11 +143,14 @@ async def search_command(
 
 
 async def list_filings_command(
-    ticker: str,
+    ticker: str | None,
     form_type: str,
     cache_dir: str,
 ) -> int:
-    """List available SEC filings"""
+    """List available SEC filings
+
+    If ticker is None, lists latest filings across all companies.
+    """
     try:
         # Initialize container
         container = Container(cache_dir=cache_dir, user_agent=get_user_agent())
@@ -241,8 +245,8 @@ def main():
 
     # list-filings command
     list_filings_parser = subparsers.add_parser("list-filings", help="List available filings")
-    list_filings_parser.add_argument("ticker", help="Stock ticker (e.g., TSLA)")
     list_filings_parser.add_argument("form_type", help="Form type (e.g., 10-K)")
+    list_filings_parser.add_argument("--ticker", help="Optional stock ticker (e.g., TSLA). Omit to see latest filings across all companies.")
 
     # list-cached command
     list_cached_parser = subparsers.add_parser("list-cached", help="List cached filings")
