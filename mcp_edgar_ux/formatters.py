@@ -365,6 +365,8 @@ def format_financial_statements(result: dict[str, Any]) -> str:
 
         Try: Different statement type or periods
     """
+    from edgar.richtools import repr_rich
+
     if not result.get("success"):
         return f"ERROR: {result.get('error', 'Unknown error')}"
 
@@ -397,9 +399,18 @@ def format_financial_statements(result: dict[str, Any]) -> str:
         lines.append("═" * 70)
         lines.append("")
 
-        # Use edgartools' built-in string representation
-        # This is already nicely formatted
-        lines.append(str(stmt_obj))
+        # Calculate width based on number of periods to prevent truncation
+        # ~150 chars for ≤4 periods, ~250 chars for 10 periods
+        num_periods = len(stmt_obj.data.columns) if hasattr(stmt_obj, 'data') else 4
+        if num_periods <= 4:
+            width = 150
+        elif num_periods <= 7:
+            width = 200
+        else:
+            width = 250
+
+        # Use repr_rich with appropriate width instead of str() to prevent number truncation
+        lines.append(repr_rich(stmt_obj.__rich__(), width=width))
         lines.append("")
 
     # Affordances
