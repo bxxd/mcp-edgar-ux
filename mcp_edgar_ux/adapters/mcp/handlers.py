@@ -133,12 +133,15 @@ class MCPHandlers:
 
     async def list_filings(
         self,
-        ticker: str,
+        ticker: Optional[str],
         form_type: str,
         start: int = 0,
         max: int = 15
     ) -> dict[str, Any]:
-        """List available filings (both cached and from SEC)"""
+        """List available filings (both cached and from SEC)
+
+        If ticker is None, returns latest filings across all companies.
+        """
         try:
             # Use service from container
             available, cached = await asyncio.to_thread(
@@ -165,6 +168,7 @@ class MCPHandlers:
                     "ticker": filing.ticker,
                     "form_type": filing.form_type,
                     "filing_date": filing.filing_date,
+                    "company_name": filing.company_name,
                     "accession_number": filing.accession_number,
                     "sec_url": filing.sec_url,
                     "cached": cached_info

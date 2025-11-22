@@ -85,9 +85,11 @@ class ListFilingsService:
         self.repository = repository
         self.fetcher = fetcher
 
-    def execute(self, ticker: str, form_type: str) -> tuple[list[Filing], list[CachedFiling]]:
+    def execute(self, ticker: Optional[str], form_type: str) -> tuple[list[Filing], list[CachedFiling]]:
         """
         List all available filings and which ones are cached.
+
+        If ticker is None, returns latest filings across all companies.
 
         Returns:
             (available_filings, cached_filings)
@@ -95,7 +97,7 @@ class ListFilingsService:
         # Get all available from SEC
         available = self.fetcher.list_available(ticker, form_type)
 
-        # Get cached filings for this ticker/form
+        # Get cached filings for this ticker/form (or all if ticker is None)
         cached = self.repository.list_all(ticker, form_type)
 
         return available, cached

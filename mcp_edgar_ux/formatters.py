@@ -153,7 +153,7 @@ Try: Different search term | Read(path) for full filing
 def format_list_filings(result: dict[str, Any]) -> str:
     """Format list_filings result as BBG Lite text.
 
-    Example output:
+    Example output (single ticker):
         TSLA 10-K FILINGS AVAILABLE
         ────────────────────────────────────────────────────────────────
         83 filings available (2 cached)
@@ -162,24 +162,23 @@ def format_list_filings(result: dict[str, Any]) -> str:
         ────────────────────────────────────────────────────────────────
         2025-11-19   (not cached - will download on demand)
         2025-08-27   /var/idio-mcp-cache/sec-filings/TSLA/10-K/2025-08-27.txt
-        2025-04-30   /var/idio-mcp-cache/sec-filings/TSLA/10-K/2025-04-30.txt
-        2024-01-29   (not cached - will download on demand)
         ...
 
+    Example output (multiple tickers):
+        10-K FILINGS AVAILABLE (LATEST ACROSS ALL COMPANIES)
         ────────────────────────────────────────────────────────────────
-        Showing 15 of 83 filings (2 cached)
+        100 filings available (5 cached)
 
-        Try: fetch_filing(ticker, form, date) | search_filing(ticker, form, pattern)
-             Read(path) to read cached filing directly
+        Ticker    Date         Location (if cached)
+        ────────────────────────────────────────────────────────────────
+        AAPL      2025-11-19   /var/idio-mcp-cache/sec-filings/AAPL/10-K/2025-11-19.txt
+        TSLA      2025-11-18   (not cached - will download on demand)
+        ...
     """
     if not result.get("success"):
         return f"ERROR: {result.get('error', 'Unknown error')}"
 
     lines = []
-
-    # Extract ticker/form from first filing (if available)
-    ticker = result['filings'][0]['ticker'].upper() if result['filings'] else "FILINGS"
-    form_type = result['filings'][0]['form_type'].upper() if result['filings'] else ""
 
     # Get pagination parameters
     start = result.get('start', 0)
@@ -190,40 +189,92 @@ def format_list_filings(result: dict[str, Any]) -> str:
     end = min(start + max_results, total_count)
     filings_to_show = result['filings'][start:end]
 
-    # Header
-    lines.append(f"{ticker} {form_type} FILINGS AVAILABLE")
-    lines.append("─" * 70)
-    lines.append(f"FILED       LOCATION (if cached)")
-    lines.append("─" * 70)
+    # Check if we have multiple tickers (if so, show ticker column)
+    unique_tickers = set(f['ticker'].upper() for f in result['filings'])
+    multi_ticker = len(unique_tickers) > 1
 
-    # Table rows (paginated)
-    for filing in filings_to_show:
-        date = filing['filing_date'][:10].ljust(10)
-        cached_info = filing.get('cached', {})
+    if multi_ticker:
+        # Multiple tickers - show ticker column with company name
+        form_type = result['filings'][0]['form_type'].upper() if result['filings'] else ""
+        lines.append(f"{form_type} FILINGS AVAILABLE (RECENT FILINGS - PAST FEW DAYS)")
+        lines.append("─" * 100)
+        lines.append(f"TICKER      COMPANY                           FILED       PATH (if cached)")
+        lines.append("─" * 100)
 
-        if cached_info and isinstance(cached_info, dict):
-            # Get first available format path (prefer txt, then md, then any)
+        # Table rows (paginated)
+        for filing in filings_to_show:
+            ticker = filing['ticker'][:10].ljust(10)
+            company_name = filing.get('company_name', 'N/A')
+            # Truncate company name to 30 chars
+            company = (company_name[:27] + '...') if company_name and len(company_name) > 30 else (company_name or 'N/A').ljust(30)
+            date = filing['filing_date'][:10].ljust(10)
+            cached_info = filing.get('cached', {})
+
+            # Get cached path if available (same logic as single-ticker)
             path = None
-            for fmt in ['txt', 'md']:
-                if fmt in cached_info:
-                    fmt_data = cached_info[fmt]
-                    if isinstance(fmt_data, dict) and 'path' in fmt_data:
-                        path = fmt_data['path']
-                        break
+            if cached_info and isinstance(cached_info, dict):
+                # Get first available format path (prefer txt, then md, then any)
+                for fmt in ['txt', 'md']:
+                    if fmt in cached_info:
+                        fmt_data = cached_info[fmt]
+                        if isinstance(fmt_data, dict) and 'path' in fmt_data:
+                            path = fmt_data['path']
+                            break
 
-            # If no txt/md, get first available format
-            if not path:
-                for fmt_data in cached_info.values():
-                    if isinstance(fmt_data, dict) and 'path' in fmt_data:
-                        path = fmt_data['path']
-                        break
+                # If no txt/md, get first available format
+                if not path:
+                    for fmt_data in cached_info.values():
+                        if isinstance(fmt_data, dict) and 'path' in fmt_data:
+                            path = fmt_data['path']
+                            break
 
-            if path:
-                lines.append(f"{date}  {path}")
+            # Show path if cached, "(not cached - will download on demand)" otherwise
+            location = path if path else "(not cached - will download on demand)"
+
+            lines.append(f"{ticker}  {company}  {date}  {location}")
+    else:
+        # Single ticker - original format
+        ticker = result['filings'][0]['ticker'].upper() if result['filings'] else "FILINGS"
+        form_type = result['filings'][0]['form_type'].upper() if result['filings'] else ""
+        company_name = result['filings'][0].get('company_name', '') if result['filings'] else ""
+
+        # Include company name in header if available
+        if company_name:
+            lines.append(f"{ticker} ({company_name}) {form_type} FILINGS AVAILABLE")
+        else:
+            lines.append(f"{ticker} {form_type} FILINGS AVAILABLE")
+        lines.append("─" * 70)
+        lines.append(f"FILED       LOCATION (if cached)")
+        lines.append("─" * 70)
+
+        # Table rows (paginated)
+        for filing in filings_to_show:
+            date = filing['filing_date'][:10].ljust(10)
+            cached_info = filing.get('cached', {})
+
+            if cached_info and isinstance(cached_info, dict):
+                # Get first available format path (prefer txt, then md, then any)
+                path = None
+                for fmt in ['txt', 'md']:
+                    if fmt in cached_info:
+                        fmt_data = cached_info[fmt]
+                        if isinstance(fmt_data, dict) and 'path' in fmt_data:
+                            path = fmt_data['path']
+                            break
+
+                # If no txt/md, get first available format
+                if not path:
+                    for fmt_data in cached_info.values():
+                        if isinstance(fmt_data, dict) and 'path' in fmt_data:
+                            path = fmt_data['path']
+                            break
+
+                if path:
+                    lines.append(f"{date}  {path}")
+                else:
+                    lines.append(f"{date}  (not cached - will download on demand)")
             else:
                 lines.append(f"{date}  (not cached - will download on demand)")
-        else:
-            lines.append(f"{date}  (not cached - will download on demand)")
 
     # Footer
     lines.append("")

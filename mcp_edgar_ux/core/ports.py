@@ -44,8 +44,11 @@ class FilingFetcher(ABC):
     """Port for fetching filings from SEC"""
 
     @abstractmethod
-    def list_available(self, ticker: str, form_type: str) -> list[Filing]:
-        """List all available filings from SEC (historical + current)"""
+    def list_available(self, ticker: Optional[str], form_type: str) -> list[Filing]:
+        """List all available filings from SEC (historical + current)
+
+        If ticker is None, returns latest filings across all companies.
+        """
         pass
 
     @abstractmethod
@@ -54,8 +57,11 @@ class FilingFetcher(ABC):
         pass
 
     @abstractmethod
-    def get_latest(self, ticker: str, form_type: str, date: Optional[str] = None) -> Filing:
-        """Get metadata for latest filing (or first filing >= date)"""
+    def get_latest(self, ticker: Optional[str], form_type: str, date: Optional[str] = None) -> Filing:
+        """Get metadata for latest filing (or first filing >= date)
+
+        If ticker is None, returns latest filing across all companies.
+        """
         pass
 
 
