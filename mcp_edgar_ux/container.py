@@ -11,9 +11,7 @@ from .core import (
     ListFilingsService,
     SearchFilingService,
     ListCachedService,
-    FinancialStatementsService,
-    ThirteenFHoldingsService,
-    InsiderTransactionsService
+    FinancialStatementsService
 )
 
 
@@ -50,5 +48,3 @@ class Container:
         )
 
         self.get_financials = FinancialStatementsService()
-        self.get_13f_holdings = ThirteenFHoldingsService()
-        self.get_insider_transactions = InsiderTransactionsService()

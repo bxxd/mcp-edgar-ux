@@ -13,9 +13,7 @@ from .services import (
     ListFilingsService,
     SearchFilingService,
     ListCachedService,
-    FinancialStatementsService,
-    ThirteenFHoldingsService,
-    InsiderTransactionsService
+    FinancialStatementsService
 )
 
 __all__ = [
@@ -34,7 +32,5 @@ __all__ = [
     "ListFilingsService",
     "SearchFilingService",
     "ListCachedService",
-    "FinancialStatementsService",
-    "ThirteenFHoldingsService",
-    "InsiderTransactionsService",
+    "FinancialStatementsService"
 ]

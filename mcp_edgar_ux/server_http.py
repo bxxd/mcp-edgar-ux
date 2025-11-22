@@ -31,9 +31,7 @@ from .formatters import (
     format_search_filing,
     format_list_filings,
     format_list_cached,
-    format_financial_statements,
-    format_13f_holdings,
-    format_insider_transactions,
+    format_financial_statements
 )
 
 # Configuration
@@ -87,9 +85,7 @@ async def list_tools() -> list[Tool]:
         Tool(**TOOL_SCHEMAS["search_filing"]),
         Tool(**TOOL_SCHEMAS["list_filings"]),
         Tool(**TOOL_SCHEMAS["list_cached"]),
-        Tool(**TOOL_SCHEMAS["get_financial_statements"]),
-        Tool(**TOOL_SCHEMAS["get_13f_holdings"]),
-        Tool(**TOOL_SCHEMAS["get_insider_transactions"]),
+        Tool(**TOOL_SCHEMAS["get_financial_statements"])
     ]
 
 
@@ -139,19 +135,6 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             statement_type=arguments.get("statement_type", "all")
         )
 
-    elif name == "get_13f_holdings":
-        result = await handlers.get_13f_holdings(
-            identifier=arguments["identifier"],
-            top_n=arguments.get("top_n", 20)
-        )
-
-    elif name == "get_insider_transactions":
-        result = await handlers.get_insider_transactions(
-            ticker=arguments["ticker"],
-            days=arguments.get("days", 90),
-            transaction_type=arguments.get("transaction_type", "all")
-        )
-
     else:
         return [TextContent(
             type="text",
@@ -164,9 +147,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         "search_filing": format_search_filing,
         "list_filings": format_list_filings,
         "list_cached": format_list_cached,
-        "get_financial_statements": format_financial_statements,
-        "get_13f_holdings": format_13f_holdings,
-        "get_insider_transactions": format_insider_transactions,
+        "get_financial_statements": format_financial_statements
     }
 
     formatter = formatters.get(name)
