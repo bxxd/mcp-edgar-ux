@@ -72,15 +72,15 @@ Example:
     "search_filing": {
         "name": "search_filing",
         "description": """
-Search for pattern in SEC filing (like grep with line numbers).
+Search for pattern in SEC filing with fuzzy matching.
 
+Uses ugrep with fuzzy=1 (tolerates 1 character typo/substitution).
 Auto-fetches filing if not cached. Returns matches with surrounding context.
-Use this to find specific content in filings without reading the entire document.
 
 Args:
 - ticker: Stock ticker (e.g., "TSLA", "AAPL")
 - form_type: Form type ("10-K", "10-Q", "8-K", etc.)
-- pattern: Search pattern (extended regex: use | for alternation, case-insensitive by default)
+- pattern: Search pattern (extended regex: use | for alternation, case-insensitive)
 - date: Optional date filter (YYYY-MM-DD). Defaults to most recent.
 - context_lines: Lines of context before/after match (default: 2)
 - max_results: Maximum matches to return (default: 20)
@@ -92,10 +92,10 @@ Returns:
 
 Example:
   search_filing(ticker="TSLA", form_type="10-K", pattern="supply chain")
-  → Shows all "supply chain" mentions with line numbers and context
+  → Finds "supply chain", "supply-chain", even with typos like "suply chain"
 
   search_filing(ticker="LNG", form_type="10-Q", pattern="Corpus Christi|Stage 3|expansion")
-  → Shows matches for ANY of these terms (extended regex with | alternation)
+  → Matches ANY of these terms (| = OR in regex)
 
   Then: Read(path, offset=1230, limit=50)  # Deep dive at specific line
 """,
