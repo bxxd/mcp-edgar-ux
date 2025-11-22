@@ -231,3 +231,31 @@ class MCPHandlers:
                 "success": False,
                 "error": f"Failed to list cached filings: {str(e)}"
             }
+
+    async def get_financial_statements(
+        self,
+        ticker: str,
+        periods: int = 4,
+        statement_type: str = "all"
+    ) -> dict[str, Any]:
+        """Get structured financial statements from Entity Facts API"""
+        try:
+            # Call service (wrapped in to_thread for async compatibility)
+            result = await asyncio.to_thread(
+                self.container.get_financials.execute,
+                ticker=ticker,
+                periods=periods,
+                statement_type=statement_type
+            )
+
+            # Add success flag and return
+            return {
+                "success": True,
+                **result
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to get financial statements for {ticker}: {str(e)}"
+            }
