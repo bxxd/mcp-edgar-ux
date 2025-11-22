@@ -1,8 +1,9 @@
 """
 File Search Adapter
 
-Implements FilingSearcher port using grep subprocess.
+Implements FilingSearcher port using ugrep subprocess with fuzzy matching.
 """
+import os
 import subprocess
 from pathlib import Path
 
@@ -22,25 +23,36 @@ class GrepSearcher(FilingSearcher):
         offset: int = 0
     ) -> tuple[list[SearchMatch], int]:
         """Search for pattern in filing, return (matches, total_count)"""
-        # Use grep with extended regex, case-insensitive, line numbers, context
+        # Use ugrep with optional fuzzy matching (faster and more forgiving than grep)
+        # Set UGREP_FUZZY=0 to disable, UGREP_FUZZY=2 for more permissive matching
+        fuzzy_level = int(os.getenv("UGREP_FUZZY", "1"))
+
         try:
+            # Build command args
+            args = [
+                "ugrep",
+                "-E",  # Extended regex
+                "-i",  # Case-insensitive
+                "-w",  # Whole word matching (prevents "risk" from matching "comprised")
+                "-n",  # Line numbers
+                f"-C{context_lines}",  # Context lines
+            ]
+
+            # Add fuzzy matching if enabled
+            if fuzzy_level > 0:
+                args.append(f"--fuzzy={fuzzy_level}")
+
+            args.extend([pattern, str(file_path)])
+
             result = subprocess.run(
-                [
-                    "grep",
-                    "-E",  # Extended regex
-                    "-i",  # Case-insensitive
-                    "-n",  # Line numbers
-                    f"-C{context_lines}",  # Context lines
-                    pattern,
-                    str(file_path)
-                ],
+                args,
                 capture_output=True,
                 text=True,
                 timeout=30
             )
 
             if result.returncode not in [0, 1]:  # 0=found, 1=not found, other=error
-                raise RuntimeError(f"grep failed: {result.stderr}")
+                raise RuntimeError(f"ugrep failed: {result.stderr}")
 
             # Parse grep output
             matches = self._parse_grep_output(result.stdout, context_lines)

@@ -95,10 +95,9 @@ Try: Different search term | Read(path) for full filing
 
     lines = []
 
-    # Header with filename
-    filename = file_path.split('/')[-1] if '/' in file_path else file_path
+    # Header with full file path
     lines.append(f"{meta['ticker'].upper()} {meta['form_type'].upper()} | {meta['filing_date']} | SEARCH \"{pattern}\"")
-    lines.append(f"FILE: {filename}")
+    lines.append(f"FILE: {file_path}")
     lines.append("")
 
     # Summary with correct range
@@ -169,10 +168,10 @@ def format_list_filings(result: dict[str, Any]) -> str:
         ────────────────────────────────────────────────────────────────
         100 filings available (5 cached)
 
-        Ticker    Date         Location (if cached)
-        ────────────────────────────────────────────────────────────────
-        AAPL      2025-11-19   /var/idio-mcp-cache/sec-filings/AAPL/10-K/2025-11-19.txt
-        TSLA      2025-11-18   (not cached - will download on demand)
+        TICKER      COMPANY                         FILED       PATH (if cached)
+        ────────────────────────────────────────────────────────────────────────────────────────────────────────────
+        AAPL        Apple Inc.                      2025-11-19  /var/idio-mcp-cache/sec-filings/AAPL/10-K/2025-11-19.txt
+        TSLA        Tesla, Inc.                     2025-11-18  [Fetch]
         ...
     """
     if not result.get("success"):
@@ -190,7 +189,7 @@ def format_list_filings(result: dict[str, Any]) -> str:
     filings_to_show = result['filings'][start:end]
 
     # Check if we have multiple tickers (if so, show ticker column)
-    unique_tickers = set(f['ticker'].upper() for f in result['filings'])
+    unique_tickers = set(f['ticker'].upper() for f in filings_to_show)
     multi_ticker = len(unique_tickers) > 1
 
     if multi_ticker:
@@ -198,15 +197,15 @@ def format_list_filings(result: dict[str, Any]) -> str:
         form_type = result['filings'][0]['form_type'].upper() if result['filings'] else ""
         lines.append(f"{form_type} FILINGS AVAILABLE (RECENT FILINGS - PAST FEW DAYS)")
         lines.append("─" * 100)
-        lines.append(f"TICKER      COMPANY                           FILED       PATH (if cached)")
+        lines.append(f"{'TICKER':<10}  {'COMPANY':<30}  {'FILED':<10}  PATH (if cached)")
         lines.append("─" * 100)
 
         # Table rows (paginated)
         for filing in filings_to_show:
             ticker = filing['ticker'][:10].ljust(10)
             company_name = filing.get('company_name', 'N/A')
-            # Truncate company name to 30 chars
-            company = (company_name[:27] + '...') if company_name and len(company_name) > 30 else (company_name or 'N/A').ljust(30)
+            # Truncate company name to 30 chars and pad for alignment
+            company = ((company_name[:27] + '...') if company_name and len(company_name) > 30 else (company_name or 'N/A')).ljust(30)
             date = filing['filing_date'][:10].ljust(10)
             cached_info = filing.get('cached', {})
 

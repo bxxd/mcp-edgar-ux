@@ -283,7 +283,7 @@ def main():
         ))
     elif args.command == "list-filings":
         return asyncio.run(list_filings_command(
-            ticker=getattr(args, 'ticker', None),
+            ticker=args.ticker,
             form_type=args.form_type,
             cache_dir=args.cache_dir
         ))

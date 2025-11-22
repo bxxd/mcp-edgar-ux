@@ -56,7 +56,7 @@ class EdgarAdapter(FilingFetcher):
                     date_str = str(filing_date)
 
                 # Look up ticker from CIK, fallback to CIK if not found
-                cik = int(edgar_filing.cik) if hasattr(edgar_filing, 'cik') else None
+                cik = int(edgar_filing.cik) if hasattr(edgar_filing, 'cik') and str(edgar_filing.cik).isdigit() else None
                 if cik and cik in cik_to_ticker:
                     ticker_from_cik = cik_to_ticker[cik]
                 elif cik:
