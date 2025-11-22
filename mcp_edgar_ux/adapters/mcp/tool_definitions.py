@@ -282,5 +282,52 @@ Use case:
             },
             "required": ["ticker"]
         }
+    },
+    "get_13f_holdings": {
+        "name": "get_13f_holdings",
+        "description": """
+Get 13F-HR institutional holdings data.
+
+Shows what an institutional investor owns (their portfolio holdings).
+13F-HR filings are required for managers with >$100M AUM.
+
+Args:
+- identifier: Ticker or CIK of institutional investor (e.g., "BRK-A", "1067983" for Berkshire)
+- top_n: Number of top holdings to return (default: 20)
+
+Returns:
+- Formatted holdings table with BBG Lite styling
+- Manager name, report period, filing date
+- Total holdings count and portfolio value
+- Top N positions with: Ticker, Issuer, Shares, Value, % of portfolio
+
+Example:
+  get_13f_holdings(identifier="BRK-A")
+  → Shows Berkshire Hathaway's top 20 holdings
+
+  get_13f_holdings(identifier="1067983", top_n=50)
+  → Shows top 50 holdings using CIK directly
+
+Use case:
+- Institutional positioning (what smart money owns)
+- Portfolio concentration (top holdings %)
+- Position sizing (shares, value)
+- Peer comparison (multiple managers)
+""",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "identifier": {
+                    "type": "string",
+                    "description": "Ticker or CIK of institutional investor (e.g., 'BRK-A', '1067983' for Berkshire)"
+                },
+                "top_n": {
+                    "type": "integer",
+                    "description": "Number of top holdings to return (default: 20)",
+                    "default": 20
+                }
+            },
+            "required": ["identifier"]
+        }
     }
 }

@@ -5,7 +5,7 @@ These are the entry points to the core. They coordinate between
 domain models and ports, but contain no infrastructure concerns.
 """
 from typing import Optional, Literal
-from edgar import Company
+from edgar import Company, get_filings
 
 from .domain import Filing, FilingContent, SearchResult, CachedFiling
 from .ports import FilingRepository, FilingFetcher, FilingSearcher
@@ -244,5 +244,74 @@ class FinancialStatementsService:
 
         if statement_type in ("all", "cash_flow"):
             result["statements"]["cash_flow"] = facts.cash_flow()
+
+        return result
+
+
+class ThirteenFHoldingsService:
+    """Use case: Get 13F-HR institutional holdings"""
+
+    def execute(
+        self,
+        identifier: str,
+        top_n: int = 20
+    ) -> dict:
+        """
+        Get 13F-HR institutional holdings.
+
+        Shows what an institution owns (their portfolio holdings).
+
+        Args:
+            identifier: Ticker or CIK of institutional investor (e.g., "BRK-A", "1067983" for Berkshire)
+            top_n: Number of top holdings to return (default: 20)
+
+        Returns:
+            Dict with holdings data and metadata:
+            {
+                "manager_name": str,
+                "cik": str,
+                "report_period": str,  # e.g., "2024-09-30"
+                "filing_date": str,
+                "total_holdings": int,
+                "total_value": int,
+                "holdings": DataFrame with top N holdings
+            }
+        """
+        # Try to resolve identifier to CIK if it's a ticker
+        try:
+            company = Company(identifier)
+            cik = company.cik
+        except:
+            # Assume it's already a CIK
+            cik = identifier
+
+        # Get latest 13F-HR filing for this CIK
+        filings = get_filings(form="13F-HR", amendments=False).filter(cik=cik).head(1)
+
+        if len(filings) == 0:
+            raise ValueError(f"No 13F-HR filings found for {identifier}")
+
+        filing = filings[0]
+        f13 = filing.obj()
+
+        # Get holdings DataFrame
+        holdings_df = f13.infotable
+
+        if holdings_df is None or len(holdings_df) == 0:
+            raise ValueError(f"No holdings data found in 13F filing")
+
+        # Sort by value (descending) and take top N
+        holdings_df = holdings_df.sort_values('Value', ascending=False).head(top_n)
+
+        # Build result
+        result = {
+            "manager_name": f13.management_company_name,
+            "cik": cik,
+            "report_period": str(f13.report_period),
+            "filing_date": str(filing.filing_date),
+            "total_holdings": f13.total_holdings,
+            "total_value": f13.total_value,
+            "holdings": holdings_df
+        }
 
         return result

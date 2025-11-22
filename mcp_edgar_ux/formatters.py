@@ -407,3 +407,89 @@ def format_financial_statements(result: dict[str, Any]) -> str:
     lines.append(f'Try: get_financial_statements("{ticker}", periods=10) for more history')
 
     return "\n".join(lines)
+
+
+def format_13f_holdings(result: dict[str, Any]) -> str:
+    """Format get_13f_holdings result as BBG Lite text.
+
+    Example output:
+        BERKSHIRE HATHAWAY INC | 13F-HR HOLDINGS
+        Report Period: 2024-09-30 | Filed: 2024-11-14
+
+        PORTFOLIO SUMMARY
+        ─────────────────────────────────────────────────────────────────
+        Total Holdings:    115 positions
+        Total Value:       $267,334,501,955
+        Filing Date:       2024-11-14
+
+        TOP 20 HOLDINGS
+        ═══════════════════════════════════════════════════════════════════
+        TICKER    ISSUER                    SHARES         VALUE        % PORT
+        ───────────────────────────────────────────────────────────────────
+        AAPL      APPLE INC                 300.0M    $52,500,000     19.6%
+        BAC       BANK OF AMERICA CORP      1.03B     $38,200,000     14.3%
+        ...
+    """
+    if not result.get("success"):
+        return f"ERROR: {result.get('error', 'Unknown error')}"
+
+    manager_name = result['manager_name']
+    report_period = result['report_period']
+    filing_date = result['filing_date']
+    total_holdings = result['total_holdings']
+    total_value = result['total_value']
+    holdings = result['holdings']
+
+    lines = []
+
+    # Header
+    lines.append(f"{manager_name.upper()} | 13F-HR HOLDINGS")
+    lines.append(f"Report Period: {report_period} | Filed: {filing_date}")
+    lines.append("")
+
+    # Portfolio summary
+    lines.append("PORTFOLIO SUMMARY")
+    lines.append("─" * 70)
+    lines.append(f"Total Holdings:    {total_holdings:,} positions")
+    lines.append(f"Total Value:       ${total_value:,}")
+    lines.append(f"Filing Date:       {filing_date}")
+    lines.append("")
+
+    # Holdings table
+    lines.append(f"TOP {len(holdings)} HOLDINGS")
+    lines.append("═" * 70)
+    lines.append(f"{'TICKER':<8} {'ISSUER':<30} {'SHARES':>15} {'VALUE':>18}")
+    lines.append("─" * 70)
+
+    for _, row in holdings.iterrows():
+        ticker = str(row.get('Ticker', 'N/A'))[:7]
+        issuer = str(row.get('Issuer', 'N/A'))[:29]
+        shares = int(row.get('SharesPrnAmount', 0))
+        value = int(row.get('Value', 0)) * 1000  # Value is in thousands
+
+        # Format shares
+        if shares >= 1_000_000_000:
+            shares_str = f"{shares / 1_000_000_000:.1f}B"
+        elif shares >= 1_000_000:
+            shares_str = f"{shares / 1_000_000:.1f}M"
+        elif shares >= 1_000:
+            shares_str = f"{shares / 1_000:.1f}K"
+        else:
+            shares_str = f"{shares:,}"
+
+        # Format value
+        if value >= 1_000_000_000:
+            value_str = f"${value / 1_000_000_000:.1f}B"
+        elif value >= 1_000_000:
+            value_str = f"${value / 1_000_000:.1f}M"
+        else:
+            value_str = f"${value:,}"
+
+        lines.append(f"{ticker:<8} {issuer:<30} {shares_str:>15} {value_str:>18}")
+
+    # Affordances
+    lines.append("")
+    lines.append("─" * 70)
+    lines.append(f'Try: get_13f_holdings(identifier="{manager_name}", top_n=50) for more holdings')
+
+    return "\n".join(lines)

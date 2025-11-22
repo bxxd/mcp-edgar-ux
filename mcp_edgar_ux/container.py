@@ -11,7 +11,8 @@ from .core import (
     ListFilingsService,
     SearchFilingService,
     ListCachedService,
-    FinancialStatementsService
+    FinancialStatementsService,
+    ThirteenFHoldingsService
 )
 
 
@@ -48,3 +49,4 @@ class Container:
         )
 
         self.get_financials = FinancialStatementsService()
+        self.get_13f_holdings = ThirteenFHoldingsService()
