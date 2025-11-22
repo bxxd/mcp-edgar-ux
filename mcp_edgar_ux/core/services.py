@@ -167,29 +167,6 @@ class SearchFilingService:
         )
 
 
-class ListCachedService:
-    """Use case: List cached filings"""
-
-    def __init__(self, repository: FilingRepository):
-        self.repository = repository
-
-    def execute(
-        self,
-        ticker: Optional[str] = None,
-        form_type: Optional[str] = None
-    ) -> tuple[list[CachedFiling], int]:
-        """
-        List cached filings and disk usage.
-
-        Returns:
-            (cached_filings, disk_usage_bytes)
-        """
-        filings = self.repository.list_all(ticker, form_type)
-        disk_usage = self.repository.get_disk_usage()
-
-        return filings, disk_usage
-
-
 class FinancialStatementsService:
     """Use case: Get structured financial statements from Entity Facts API"""
 

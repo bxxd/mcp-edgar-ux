@@ -137,9 +137,6 @@ Read("/tmp/sec-filings/TSLA/10-K/2025-04-30.txt", offset=1200, limit=50)
 
 # Search for terms
 Grep("supply chain", path="/tmp/sec-filings/TSLA/10-K/2025-04-30.txt")
-
-# List cached filings
-list_cached()
 ```
 
 ## Tools
@@ -180,32 +177,6 @@ fetch_filing("TSLA", "10-K", date="2024-01-01")
 
 # Markdown format (may contain XBRL artifacts)
 fetch_filing("AAPL", "10-Q", format="markdown")
-```
-
-### `list_cached(ticker=None, form_type=None)`
-
-List filings cached on disk.
-
-**Args:**
-- `ticker`: Optional ticker filter
-- `form_type`: Optional form type filter
-
-**Returns:**
-```json
-{
-  "success": true,
-  "filings": [
-    {
-      "ticker": "TSLA",
-      "form_type": "10-K",
-      "filing_date": "2025-04-30",
-      "path": "/tmp/sec-filings/TSLA/10-K/2025-04-30.md",
-      "size_bytes": 247217
-    }
-  ],
-  "count": 1,
-  "disk_usage_mb": 0.24
-}
 ```
 
 ## Example Output

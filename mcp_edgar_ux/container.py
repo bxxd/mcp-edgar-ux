@@ -10,7 +10,6 @@ from .core import (
     FetchFilingService,
     ListFilingsService,
     SearchFilingService,
-    ListCachedService,
     FinancialStatementsService
 )
 
@@ -41,10 +40,6 @@ class Container:
             fetcher=self.fetcher,
             searcher=self.searcher,
             fetch_service=self.fetch_filing
-        )
-
-        self.list_cached = ListCachedService(
-            repository=self.cache
         )
 
         self.get_financials = FinancialStatementsService()

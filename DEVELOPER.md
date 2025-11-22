@@ -114,10 +114,6 @@ path = await asyncio.to_thread(cache.save, ...)
 - Searches within filing (auto-downloads if not cached)
 - Returns: Matches with context + line numbers
 
-**4. `list_cached(ticker=None, form_type=None)` - CACHE INSPECTION**
-- Internal tool for cache management
-- Shows what's already downloaded
-
 ### Cache Strategy
 
 **Default Location**: `/var/idio-mcp-cache/sec-filings/`
@@ -280,12 +276,12 @@ CACHE_DIR=/tmp/sec-filings-test ./cli fetch TSLA 10-K
 
 **MCP Integration**: Complete ✅
 - HTTP/SSE server (170 lines, port 5002)
-- Four tools: fetch_filing, search_filing, list_filings, list_cached
+- Four tools: fetch_filing, search_filing, list_filings, get_financial_statements
 - Shared tool definitions (DRY)
 - BBG Lite formatted output
 
 **CLI**: Complete ✅
-- Commands: list-tools, fetch, search, list-filings, list-cached
+- Commands: list-tools, fetch, search, list-filings, financials
 - Uses same hexagonal core as MCP server
 - Fast iteration without server restart
 

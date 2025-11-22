@@ -10,7 +10,7 @@ TOOL_SCHEMAS = {
     "fetch_filing": {
         "name": "fetch_filing",
         "description": """
-Download SEC filing to disk, return path + preview.
+Download SEC filing to disk, return path.
 
 The Bitter Lesson: Don't dump 241K tokens into context.
 Save to disk, read what you need (Read/Grep/Bash on the path).
@@ -20,19 +20,20 @@ Args:
 - form_type: Form type ("10-K", "10-Q", "8-K", "DEF 14A", etc.)
 - date: Optional date filter (YYYY-MM-DD). Returns filing >= date. Defaults to most recent.
 - format: Output format - "text" (default, clean), "markdown" (may have XBRL), or "html"
-- preview_lines: Number of lines to preview (default: 50, 0 to disable)
 
 Returns:
-- path: File path to cached filing (use Read/Grep/Bash)
-- preview: First N lines with line numbers (like Read tool)
+- path: File path to cached filing (use Read/Grep/Bash on the path)
 - metadata: company, ticker, form_type, filing_date, size_bytes, total_lines, etc.
+- cached: whether filing was already cached (true) or newly downloaded (false)
 
 Example:
   fetch_filing(ticker="TSLA", form_type="10-K")
-  → Shows path, preview (first 50 lines), metadata
+  → Returns path + metadata
 
-  Then: search_filing("TSLA", "10-K", "supply chain")
-  Or: Read(path, offset=100, limit=100)
+  Then use the path:
+  - Read(path, offset=0, limit=100) to read specific lines
+  - search_filing("TSLA", "10-K", "supply chain") to search content
+  - Grep(pattern, path) for advanced regex searches
 """,
         "inputSchema": {
             "type": "object",
@@ -192,73 +193,44 @@ Example:
             "required": ["form_type"]
         }
     },
-    "list_cached": {
-        "name": "list_cached",
-        "description": """
-List SEC filings cached on disk.
-
-Returns all cached filings with paths, or filter by ticker/form_type.
-
-Args:
-- ticker: Optional ticker filter (e.g., "TSLA")
-- form_type: Optional form type filter (e.g., "10-K")
-
-Returns:
-- filings: List of cached filings with path, ticker, form_type, filing_date, size
-- count: Total number of cached filings
-- disk_usage_mb: Total disk usage
-
-Example:
-  list_cached()  # All cached filings
-  list_cached(ticker="TSLA")  # TSLA filings only
-  list_cached(form_type="10-K")  # All 10-Ks
-""",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "ticker": {
-                    "type": "string",
-                    "description": "Optional ticker filter"
-                },
-                "form_type": {
-                    "type": "string",
-                    "description": "Optional form type filter"
-                }
-            },
-            "required": []
-        }
-    },
     "get_financial_statements": {
         "name": "get_financial_statements",
         "description": """
-Get structured financial statements from SEC Entity Facts API.
+Get simplified financial statements (high-level view only).
 
-Fast, structured financial data (income statement, balance sheet, cash flow).
-Uses edgartools' built-in caching for performance.
+IMPORTANT: These are SIMPLIFIED statements showing key metrics only.
+For detailed analysis, use fetch_filing() to get the full 10-K/10-Q filing.
+
+What you get:
+- Key financial metrics: Revenue, Assets, Cash Flow, Net Income, etc.
+- Last 4 annual periods (standardized GAAP concepts)
+- Clean, formatted output
+
+What you DON'T get:
+- Detailed footnotes, exhibits, or MD&A sections
+- Non-GAAP metrics or company-specific line items
+- Forward-looking statements or risk factors
+- Full granularity of the original filing
 
 Args:
 - ticker: Stock ticker (e.g., "TSLA", "AAPL")
 - statement_type: Which statements - "all" (default), "income", "balance", or "cash_flow"
 
 Returns:
-- Formatted multi-year financial statements with BBG Lite styling
-- Income statement: Revenue, expenses, net income
-- Balance sheet: Assets, liabilities, equity
-- Cash flow: Operating, investing, financing activities
+- Income: Revenue, expenses, net income
+- Balance: Assets, liabilities, equity
+- Cash flow: Operating, investing, financing
 
 Example:
   get_financial_statements(ticker="TSLA")
-  → Returns last 4 years of all statements
-
-  get_financial_statements(ticker="TSLA", statement_type="income")
-  → Returns 4 years of income statement only
+  → Simplified 4-year view of all statements
 
 Use case:
-- Revenue growth trends
-- Margin analysis (gross, operating, net)
-- Balance sheet strength
-- Cash flow quality
-- YoY comparisons
+- Quick revenue/margin trend checks
+- High-level balance sheet assessment
+- Cash flow pattern analysis
+
+For deep analysis: Use fetch_filing() + search_filing() for full 10-K/10-Q content.
 """,
         "inputSchema": {
             "type": "object",
