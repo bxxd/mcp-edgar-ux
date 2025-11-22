@@ -146,7 +146,7 @@ class SearchFilingService:
             cached_path = filing_content.path
 
         # Search in the cached file
-        matches = self.searcher.search(
+        matches, total_count = self.searcher.search(
             cached_path,
             pattern,
             context_lines,
@@ -158,7 +158,7 @@ class SearchFilingService:
             filing=filing,
             pattern=pattern,
             matches=matches,
-            total_matches=len(matches),
+            total_matches=total_count,
             file_path=cached_path
         )
 

@@ -70,8 +70,8 @@ class FilingSearcher(ABC):
         context_lines: int = 2,
         max_results: int = 20,
         offset: int = 0
-    ) -> list[SearchMatch]:
-        """Search for pattern in filing, return matches with context"""
+    ) -> tuple[list[SearchMatch], int]:
+        """Search for pattern in filing, return (matches, total_count)"""
         pass
 
     @abstractmethod

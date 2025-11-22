@@ -108,7 +108,9 @@ class EdgarAdapter(FilingFetcher):
                 raise ValueError(
                     f"No {form_type} filings found for {ticker} on or after {date}"
                 )
-            return filtered[0]
+            # Return the oldest filing that matches (closest to the target date)
+            # filings are sorted newest-first, so filtered[-1] is the oldest match
+            return filtered[-1]
 
         # Return most recent
         return filings[0]

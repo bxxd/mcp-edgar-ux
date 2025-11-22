@@ -21,13 +21,7 @@ def format_fetch_filing(result: dict[str, Any]) -> str:
 
         PATH: /var/idio-mcp-cache/sec-filings/TSLA/10-K/2025-04-30.txt
 
-        PREVIEW (first 50 lines):
-        ──────────────────────────────────────────────────────────────────────
-             1→UNITED STATES
-             2→SECURITIES AND EXCHANGE COMMISSION
-             3→...
-
-        Try: search_filing("TSLA", "10-K", "SEARCH TERM") | Read(path, offset=100, limit=100)
+        Try: Read(path, offset=0, limit=50) | search_filing("TSLA", "10-K", "SEARCH TERM")
     """
     if not result.get("success"):
         return f"ERROR: {result.get('error', 'Unknown error')}"
@@ -56,17 +50,9 @@ def format_fetch_filing(result: dict[str, Any]) -> str:
     # Path
     lines.append(f"PATH: {result['path']}")
 
-    # Preview
-    if result.get('preview'):
-        lines.append("")
-        lines.append(f"PREVIEW (first {len(result['preview'])} lines):")
-        lines.append("─" * 70)
-        for line in result['preview']:
-            lines.append(line)
-
     # Affordances
     lines.append("")
-    lines.append(f'Try: search_filing("{meta["ticker"]}", "{meta["form_type"]}", "SEARCH TERM") | Read(path, offset=100, limit=100)')
+    lines.append(f'Try: Read(path, offset=0, limit=50) | search_filing("{meta["ticker"]}", "{meta["form_type"]}", "SEARCH TERM")')
 
     return "\n".join(lines)
 
@@ -79,11 +65,11 @@ def format_search_filing(result: dict[str, Any]) -> str:
 
         MATCHES (12 found | 10,234 lines)
         ──────────────────────────────────────────────────────────────────────
-            1234→matching line with supply chain
-            1235→context after
+          1234: matching line with supply chain
+          1235: context after
 
-            2456→another matching line
-            2457→more context
+          2456: another matching line
+          2457: more context
 
         PATH: /var/idio-mcp-cache/sec-filings/TSLA/10-K/2025-04-30.txt
         Try: Read(path, offset=LINE, limit=50) | search_filing(..., pattern="OTHER")
@@ -95,6 +81,7 @@ def format_search_filing(result: dict[str, Any]) -> str:
     pattern = result['pattern']
     match_count = result['match_count']
     file_path = result['file_path']
+    offset = result.get('offset', 0)
 
     # No matches
     if match_count == 0:
@@ -108,14 +95,22 @@ Try: Different search term | Read(path) for full filing
 
     lines = []
 
-    # Header
+    # Header with filename
+    filename = file_path.split('/')[-1] if '/' in file_path else file_path
     lines.append(f"{meta['ticker'].upper()} {meta['form_type'].upper()} | {meta['filing_date']} | SEARCH \"{pattern}\"")
+    lines.append(f"FILE: {filename}")
     lines.append("")
 
-    # Summary
+    # Summary with correct range
     returned = len(result['matches'])
+    start_idx = offset + 1
+    end_idx = offset + returned
+
     if match_count > returned:
-        range_str = f" (showing first {returned})"
+        if offset == 0:
+            range_str = f" (showing first {returned})"
+        else:
+            range_str = f" (showing {start_idx}-{end_idx})"
     else:
         range_str = ""
     lines.append(f"MATCHES ({match_count} found{range_str})")
@@ -133,15 +128,15 @@ Try: Different search term | Read(path) for full filing
         # Context before (with calculated line numbers)
         for j, ctx_line in enumerate(context_before):
             ctx_line_num = line_num - len(context_before) + j
-            lines.append(f"  {ctx_line_num:>6}→{ctx_line}")
+            lines.append(f"  {ctx_line_num:>4}: {ctx_line}")
 
         # Matching line
-        lines.append(f"  {line_num:>6}→{match['line']}")
+        lines.append(f"  {line_num:>4}: {match['line']}")
 
         # Context after (with calculated line numbers)
         for j, ctx_line in enumerate(context_after, 1):
             ctx_line_num = line_num + j
-            lines.append(f"  {ctx_line_num:>6}→{ctx_line}")
+            lines.append(f"  {ctx_line_num:>4}: {ctx_line}")
 
     lines.append("")
     lines.append(f"PATH: {file_path}")
@@ -163,19 +158,19 @@ def format_list_filings(result: dict[str, Any]) -> str:
         ────────────────────────────────────────────────────────────────
         83 filings available (2 cached)
 
-        Date         Cached   Formats
+        Date         Location (if cached)
         ────────────────────────────────────────────────────────────────
-        2025-11-19
-        2025-08-27   ✓        txt
-        2025-04-30   ✓        txt, md
-        2024-01-29
+        2025-11-19   (not cached - will download on demand)
+        2025-08-27   /var/idio-mcp-cache/sec-filings/TSLA/10-K/2025-08-27.txt
+        2025-04-30   /var/idio-mcp-cache/sec-filings/TSLA/10-K/2025-04-30.txt
+        2024-01-29   (not cached - will download on demand)
         ...
 
         ────────────────────────────────────────────────────────────────
-        ✓ Cached filings available locally (instant access)
-          Other filings will be downloaded on demand from SEC
+        Showing 15 of 83 filings (2 cached)
 
-        Data source: SEC EDGAR | Powered by edgartools
+        Try: fetch_filing(ticker, form, date) | search_filing(ticker, form, pattern)
+             Read(path) to read cached filing directly
     """
     if not result.get("success"):
         return f"ERROR: {result.get('error', 'Unknown error')}"
@@ -186,43 +181,56 @@ def format_list_filings(result: dict[str, Any]) -> str:
     ticker = result['filings'][0]['ticker'].upper() if result['filings'] else "FILINGS"
     form_type = result['filings'][0]['form_type'].upper() if result['filings'] else ""
 
+    # Get pagination parameters
+    start = result.get('start', 0)
+    max_results = result.get('max', 15)
+    total_count = result['count']
+
+    # Calculate pagination
+    end = min(start + max_results, total_count)
+    filings_to_show = result['filings'][start:end]
+
     # Header
     lines.append(f"{ticker} {form_type} FILINGS AVAILABLE")
     lines.append("─" * 70)
-    lines.append(f"FILED       CACHED  SIZE     [ACTIONS]")
+    lines.append(f"FILED       LOCATION (if cached)")
+    lines.append("─" * 70)
 
-    # Table rows (first 15)
-    for filing in result['filings'][:15]:
+    # Table rows (paginated)
+    for filing in filings_to_show:
         date = filing['filing_date'][:10].ljust(10)
-        cached = "✓" if filing.get('cached') else " "
-
-        # Size (if cached) - get size from cached info
-        size_bytes = None
         cached_info = filing.get('cached', {})
+
         if cached_info and isinstance(cached_info, dict):
-            # Get size from first available format
-            for fmt_data in cached_info.values():
-                if isinstance(fmt_data, dict) and 'size_bytes' in fmt_data:
-                    size_bytes = fmt_data['size_bytes']
-                    break
+            # Get first available format path (prefer txt, then md, then any)
+            path = None
+            for fmt in ['txt', 'md']:
+                if fmt in cached_info:
+                    fmt_data = cached_info[fmt]
+                    if isinstance(fmt_data, dict) and 'path' in fmt_data:
+                        path = fmt_data['path']
+                        break
 
-        if size_bytes:
-            size_kb = size_bytes / 1024
-            size_str = f"{size_kb:.0f} KB".ljust(8)
+            # If no txt/md, get first available format
+            if not path:
+                for fmt_data in cached_info.values():
+                    if isinstance(fmt_data, dict) and 'path' in fmt_data:
+                        path = fmt_data['path']
+                        break
+
+            if path:
+                lines.append(f"{date}  {path}")
+            else:
+                lines.append(f"{date}  (not cached - will download on demand)")
         else:
-            size_str = "-".ljust(8)
-
-        lines.append(f"{date}  {cached}       {size_str}")
-
-    # Show remaining count
-    if result['count'] > 15:
-        lines.append(f"\n... {result['count'] - 15} more filings")
+            lines.append(f"{date}  (not cached - will download on demand)")
 
     # Footer
     lines.append("")
-    lines.append(f"Showing {min(result['count'], 15)} of {result['count']} filings ({result['cached_count']} cached)")
+    lines.append(f"Showing {start + 1}-{start + len(filings_to_show)} of {total_count} filings ({result['cached_count']} cached)")
     lines.append("")
     lines.append(f"Try: fetch_filing(ticker, form, date) | search_filing(ticker, form, pattern)")
+    lines.append(f"     Read(path) to read cached filing directly")
 
     return "\n".join(lines)
 

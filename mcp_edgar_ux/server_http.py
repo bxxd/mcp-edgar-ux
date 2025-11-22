@@ -97,7 +97,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             form_type=arguments["form_type"],
             date=arguments.get("date"),
             format=arguments.get("format", "text"),
-            preview_lines=arguments.get("preview_lines", 50)
+            preview_lines=arguments.get("preview_lines", 200)
         )
 
     elif name == "search_filing":
@@ -115,7 +115,9 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     elif name == "list_filings":
         result = await handlers.list_filings(
             ticker=arguments["ticker"],
-            form_type=arguments["form_type"]
+            form_type=arguments["form_type"],
+            start=arguments.get("start", 0),
+            max=arguments.get("max", 15)
         )
 
     elif name == "list_cached":
