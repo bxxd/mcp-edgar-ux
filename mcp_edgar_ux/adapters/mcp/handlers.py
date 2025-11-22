@@ -21,7 +21,8 @@ class MCPHandlers:
         form_type: str,
         date: Optional[str] = None,
         format: str = "text",
-        preview_lines: int = 200
+        preview_lines: int = 200,
+        force_refetch: bool = False
     ) -> dict[str, Any]:
         """Fetch filing and return path + preview + metadata"""
         try:
@@ -44,7 +45,8 @@ class MCPHandlers:
                 date=date,
                 format=format,
                 include_exhibits=True,
-                preview_lines=preview_lines
+                preview_lines=preview_lines,
+                force_refetch=force_refetch
             )
 
             # Check if this filing was already cached before we called the service

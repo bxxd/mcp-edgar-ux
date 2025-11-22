@@ -31,7 +31,8 @@ class FetchFilingService:
         date: Optional[str] = None,
         format: str = "text",
         include_exhibits: bool = True,
-        preview_lines: int = 50
+        preview_lines: int = 50,
+        force_refetch: bool = False
     ) -> FilingContent:
         """
         Fetch filing and cache it.
@@ -41,8 +42,8 @@ class FetchFilingService:
         # Get filing metadata
         filing = self.fetcher.get_latest(ticker, form_type, date)
 
-        # Check if already cached
-        cached_path = self.repository.get(ticker, form_type, filing.filing_date, format)
+        # Check if already cached (skip if force_refetch)
+        cached_path = self.repository.get(ticker, form_type, filing.filing_date, format) if not force_refetch else None
 
         if cached_path:
             # Read from cache

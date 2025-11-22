@@ -58,6 +58,11 @@ Example:
                     "type": "integer",
                     "description": "Deprecated: Preview removed. Use Read(path, offset=0, limit=N) instead.",
                     "default": 0
+                },
+                "force_refetch": {
+                    "type": "boolean",
+                    "description": "Force re-download even if cached (useful after edgartools updates). Default: false",
+                    "default": False
                 }
             },
             "required": ["ticker", "form_type"]

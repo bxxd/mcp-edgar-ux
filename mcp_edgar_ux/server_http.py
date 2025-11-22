@@ -97,7 +97,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             form_type=arguments["form_type"],
             date=arguments.get("date"),
             format=arguments.get("format", "text"),
-            preview_lines=arguments.get("preview_lines", 200)
+            preview_lines=arguments.get("preview_lines", 200),
+            force_refetch=arguments.get("force_refetch", False)
         )
 
     elif name == "search_filing":
