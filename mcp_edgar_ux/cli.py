@@ -207,7 +207,6 @@ async def list_cached_command(
 
 async def financials_command(
     ticker: str,
-    periods: int,
     statement_type: str,
     cache_dir: str,
 ) -> int:
@@ -220,7 +219,6 @@ async def financials_command(
         # Call handler
         result = await handlers.get_financial_statements(
             ticker=ticker,
-            periods=periods,
             statement_type=statement_type
         )
 
@@ -293,7 +291,6 @@ def main():
     # financials command
     financials_parser = subparsers.add_parser("financials", help="Get financial statements")
     financials_parser.add_argument("ticker", help="Stock ticker (e.g., TSLA)")
-    financials_parser.add_argument("--periods", type=int, default=4, help="Number of periods (default: 4)")
     financials_parser.add_argument("--type", dest="statement_type", default="all",
                                     choices=["all", "income", "balance", "cash_flow"],
                                     help="Statement type (default: all)")
@@ -341,7 +338,6 @@ def main():
     elif args.command == "financials":
         return asyncio.run(financials_command(
             ticker=args.ticker,
-            periods=args.periods,
             statement_type=args.statement_type,
             cache_dir=args.cache_dir
         ))

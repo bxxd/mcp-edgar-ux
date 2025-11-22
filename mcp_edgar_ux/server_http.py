@@ -136,7 +136,6 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     elif name == "get_financial_statements":
         result = await handlers.get_financial_statements(
             ticker=arguments["ticker"],
-            periods=arguments.get("periods", 4),
             statement_type=arguments.get("statement_type", "all")
         )
 

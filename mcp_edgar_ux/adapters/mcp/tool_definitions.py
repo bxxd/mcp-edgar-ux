@@ -238,7 +238,6 @@ Uses edgartools' built-in caching for performance.
 
 Args:
 - ticker: Stock ticker (e.g., "TSLA", "AAPL")
-- periods: Number of periods to return (default: 4 years)
 - statement_type: Which statements - "all" (default), "income", "balance", or "cash_flow"
 
 Returns:
@@ -251,8 +250,8 @@ Example:
   get_financial_statements(ticker="TSLA")
   → Returns last 4 years of all statements
 
-  get_financial_statements(ticker="TSLA", periods=10, statement_type="income")
-  → Returns 10 years of income statement only
+  get_financial_statements(ticker="TSLA", statement_type="income")
+  → Returns 4 years of income statement only
 
 Use case:
 - Revenue growth trends
@@ -267,11 +266,6 @@ Use case:
                 "ticker": {
                     "type": "string",
                     "description": "Stock ticker (e.g., 'TSLA', 'AAPL')"
-                },
-                "periods": {
-                    "type": "integer",
-                    "description": "Number of periods to return (default: 4)",
-                    "default": 4
                 },
                 "statement_type": {
                     "type": "string",

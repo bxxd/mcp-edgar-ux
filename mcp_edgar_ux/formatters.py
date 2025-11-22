@@ -415,7 +415,7 @@ def format_financial_statements(result: dict[str, Any]) -> str:
 
     # Affordances
     lines.append("─" * 70)
-    lines.append(f'Try: get_financial_statements("{ticker}", periods=10) for more history')
+    lines.append(f'Try: get_financial_statements("{ticker}", statement_type="income") for specific statements')
 
     return "\n".join(lines)
 

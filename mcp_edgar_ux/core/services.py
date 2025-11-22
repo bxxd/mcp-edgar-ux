@@ -196,7 +196,6 @@ class FinancialStatementsService:
     def execute(
         self,
         ticker: str,
-        periods: int = 4,
         statement_type: Literal["all", "income", "balance", "cash_flow"] = "all"
     ) -> dict:
         """
@@ -207,7 +206,6 @@ class FinancialStatementsService:
 
         Args:
             ticker: Stock ticker (e.g., "TSLA", "AAPL")
-            periods: Number of periods to return (default: 4 years)
             statement_type: Which statements to return
 
         Returns:
