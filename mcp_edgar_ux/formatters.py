@@ -493,3 +493,86 @@ def format_13f_holdings(result: dict[str, Any]) -> str:
     lines.append(f'Try: get_13f_holdings(identifier="{manager_name}", top_n=50) for more holdings')
 
     return "\n".join(lines)
+
+
+def format_insider_transactions(result: dict[str, Any]) -> str:
+    """Format insider transactions in BBG Lite style"""
+    lines = []
+
+    # Check if error
+    if not result.get("success", True):
+        return f"ERROR: {result.get('error', 'Unknown error')}"
+
+    company = result.get("company", "N/A")
+    ticker = result.get("ticker", "N/A")
+    days = result.get("days", 90)
+    txn_type = result.get("transaction_type", "all")
+    count = result.get("transaction_count", 0)
+    txns = result.get("transactions")
+
+    # Header
+    filter_text = txn_type.upper() if txn_type != "all" else "ALL"
+    lines.append(f"{ticker} ({company}) | INSIDER TRANSACTIONS ({filter_text})")
+    lines.append(f"Lookback Period: {days} days | Transactions: {count}")
+    lines.append("")
+
+    # No transactions
+    if count == 0 or txns is None or txns.empty:
+        lines.append("─" * 70)
+        lines.append("No insider transactions found in this period")
+        lines.append("─" * 70)
+        return "\n".join(lines)
+
+    # Transaction summary by type
+    buys = len(txns[txns['transaction_type'] == 'Purchase']) if 'transaction_type' in txns.columns else 0
+    sells = len(txns[txns['transaction_type'] == 'Sale']) if 'transaction_type' in txns.columns else 0
+
+    lines.append("SUMMARY")
+    lines.append("─" * 70)
+    lines.append(f"Total Buys:    {buys:>5}")
+    lines.append(f"Total Sells:   {sells:>5}")
+    lines.append("")
+
+    # Transactions table
+    lines.append("RECENT TRANSACTIONS")
+    lines.append("═" * 70)
+    lines.append(f"{'DATE':<12} {'INSIDER':<25} {'TYPE':<8} {'SHARES':>12} {'PRICE':>10}")
+    lines.append("─" * 70)
+
+    for _, row in txns.iterrows():
+        date = str(row.get('transaction_date', 'N/A'))
+        insider = str(row.get('insider_name', 'N/A'))[:24]
+        txn_type_row = str(row.get('transaction_type', 'N/A'))
+        shares = row.get('shares', 0)
+        price = row.get('price', 0)
+
+        # Emoji for transaction type
+        if txn_type_row == 'Purchase':
+            emoji = '📈'
+            txn_display = 'Buy'
+        elif txn_type_row == 'Sale':
+            emoji = '📉'
+            txn_display = 'Sell'
+        else:
+            emoji = '  '
+            txn_display = txn_type_row[:6]
+
+        # Format shares
+        if shares >= 1_000_000:
+            shares_str = f"{shares / 1_000_000:.2f}M"
+        elif shares >= 1_000:
+            shares_str = f"{shares / 1_000:.1f}K"
+        else:
+            shares_str = f"{shares:.0f}"
+
+        # Format price
+        price_str = f"${price:,.2f}"
+
+        lines.append(f"{date:<12} {insider:<25} {emoji}{txn_display:<7} {shares_str:>12} {price_str:>10}")
+
+    # Affordances
+    lines.append("")
+    lines.append("─" * 70)
+    lines.append(f'Try: get_insider_transactions(ticker="{ticker}", days=180) for more history')
+
+    return "\n".join(lines)

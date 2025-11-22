@@ -59,6 +59,7 @@ class TestContainer:
         assert container.list_filings is not None
         assert container.get_financials is not None
         assert container.get_13f_holdings is not None
+        assert container.get_insider_transactions is not None
 
     def test_list_cached_integration(self, tmp_path):
         """Test list_cached service via container."""

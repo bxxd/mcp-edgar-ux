@@ -329,5 +329,59 @@ Use case:
             },
             "required": ["identifier"]
         }
+    },
+    "get_insider_transactions": {
+        "name": "get_insider_transactions",
+        "description": """
+Get insider buy/sell transactions from Form 4 filings.
+
+Shows recent insider trading activity (executives buying/selling stock).
+Form 4 must be filed within 2 business days of transaction.
+
+Args:
+- ticker: Stock ticker (e.g., "TSLA", "AAPL")
+- days: Lookback period in days (default: 90)
+- transaction_type: Filter - "buy", "sell", or "all" (default: "all")
+
+Returns:
+- Formatted transaction list with BBG Lite styling
+- Summary: Total buys vs sells
+- Transaction table: Date, insider name, type, shares, price
+- Each transaction shows: Filing date, transaction date, insider, shares, price
+
+Example:
+  get_insider_transactions(ticker="TSLA")
+  → Shows last 90 days of all insider transactions
+
+  get_insider_transactions(ticker="TSLA", days=180, transaction_type="buy")
+  → Shows 180 days of insider PURCHASES only
+
+Use case:
+- Insider sentiment (executives buying = bullish signal)
+- Unusual insider activity (clusters of buys/sells)
+- Major transactions by C-suite
+- Pattern detection (executives loading up before earnings)
+""",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "ticker": {
+                    "type": "string",
+                    "description": "Stock ticker (e.g., 'TSLA', 'AAPL')"
+                },
+                "days": {
+                    "type": "integer",
+                    "description": "Lookback period in days (default: 90)",
+                    "default": 90
+                },
+                "transaction_type": {
+                    "type": "string",
+                    "enum": ["all", "buy", "sell"],
+                    "description": "Filter transactions: 'all' (default), 'buy', or 'sell'",
+                    "default": "all"
+                }
+            },
+            "required": ["ticker"]
+        }
     }
 }

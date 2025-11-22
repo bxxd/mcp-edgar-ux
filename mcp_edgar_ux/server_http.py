@@ -33,6 +33,7 @@ from .formatters import (
     format_list_cached,
     format_financial_statements,
     format_13f_holdings,
+    format_insider_transactions,
 )
 
 # Configuration
@@ -88,6 +89,7 @@ async def list_tools() -> list[Tool]:
         Tool(**TOOL_SCHEMAS["list_cached"]),
         Tool(**TOOL_SCHEMAS["get_financial_statements"]),
         Tool(**TOOL_SCHEMAS["get_13f_holdings"]),
+        Tool(**TOOL_SCHEMAS["get_insider_transactions"]),
     ]
 
 
@@ -144,6 +146,13 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             top_n=arguments.get("top_n", 20)
         )
 
+    elif name == "get_insider_transactions":
+        result = await handlers.get_insider_transactions(
+            ticker=arguments["ticker"],
+            days=arguments.get("days", 90),
+            transaction_type=arguments.get("transaction_type", "all")
+        )
+
     else:
         return [TextContent(
             type="text",
@@ -158,6 +167,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         "list_cached": format_list_cached,
         "get_financial_statements": format_financial_statements,
         "get_13f_holdings": format_13f_holdings,
+        "get_insider_transactions": format_insider_transactions,
     }
 
     formatter = formatters.get(name)

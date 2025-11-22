@@ -287,3 +287,31 @@ class MCPHandlers:
                 "success": False,
                 "error": f"Failed to get 13F holdings for {identifier}: {str(e)}"
             }
+
+    async def get_insider_transactions(
+        self,
+        ticker: str,
+        days: int = 90,
+        transaction_type: str = "all"
+    ) -> dict[str, Any]:
+        """Get insider buy/sell transactions"""
+        try:
+            # Call service (wrapped in to_thread for async compatibility)
+            result = await asyncio.to_thread(
+                self.container.get_insider_transactions.execute,
+                ticker=ticker,
+                days=days,
+                transaction_type=transaction_type
+            )
+
+            # Add success flag and return
+            return {
+                "success": True,
+                **result
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to get insider transactions for {ticker}: {str(e)}"
+            }

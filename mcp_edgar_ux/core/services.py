@@ -315,3 +315,128 @@ class ThirteenFHoldingsService:
         }
 
         return result
+
+
+class InsiderTransactionsService:
+    """Use case: Get insider buy/sell transactions from Form 4 filings"""
+
+    def execute(
+        self,
+        ticker: str,
+        days: int = 90,
+        transaction_type: str = "all"
+    ) -> dict:
+        """
+        Get insider transactions from Form 4 filings.
+
+        Args:
+            ticker: Stock ticker (e.g., "TSLA", "AAPL")
+            days: Lookback period in days (default: 90)
+            transaction_type: Filter - "buy", "sell", or "all" (default: "all")
+
+        Returns:
+            Dict with transaction data:
+            {
+                "company": str,
+                "ticker": str,
+                "cik": str,
+                "transactions": DataFrame with columns:
+                    - filing_date: When Form 4 was filed
+                    - transaction_date: When transaction occurred
+                    - insider_name: Name of insider
+                    - transaction_type: "Purchase" or "Sale"
+                    - shares: Number of shares
+                    - price: Price per share
+                    - value: Total value (shares * price)
+                    - remaining: Shares remaining after transaction
+                    - ownership: "Direct" or "Indirect"
+            }
+        """
+        from datetime import datetime, timedelta
+        import pandas as pd
+
+        # Get company info
+        company = Company(ticker)
+        cik = company.cik
+
+        # Get Form 4 filings
+        filings = get_filings(form="4", amendments=False).filter(cik=cik)
+
+        # Calculate cutoff date
+        cutoff_date = datetime.now() - timedelta(days=days)
+
+        # Collect transactions
+        all_transactions = []
+
+        for filing in filings:
+            # Check if filing is within date range
+            if filing.filing_date < cutoff_date.date():
+                break  # Filings are sorted newest first
+
+            try:
+                form4 = filing.obj()
+                table = form4.non_derivative_table
+
+                if not table.has_transactions:
+                    continue
+
+                # Get market trades (actual buys/sells)
+                market = table.market_trades
+
+                if market is None or market.empty:
+                    continue
+
+                # Extract transaction data
+                for _, row in market.iterrows():
+                    txn_type = row.get('TransactionType', '')
+
+                    # Filter by transaction type if specified
+                    if transaction_type != "all":
+                        if transaction_type.lower() == "buy" and txn_type != "Purchase":
+                            continue
+                        if transaction_type.lower() == "sell" and txn_type != "Sale":
+                            continue
+
+                    all_transactions.append({
+                        'filing_date': filing.filing_date,
+                        'transaction_date': row.get('Date'),
+                        'insider_name': form4.insider_name,
+                        'transaction_type': txn_type,
+                        'shares': row.get('Shares', 0),
+                        'price': row.get('Price', 0),
+                        'value': row.get('Shares', 0) * row.get('Price', 0),
+                        'remaining': row.get('Remaining', 0),
+                        'ownership': row.get('DirectIndirect', 'N/A')
+                    })
+
+            except Exception:
+                # Skip filings that fail to parse
+                continue
+
+        # Convert to DataFrame
+        if not all_transactions:
+            # Return empty result
+            return {
+                "company": company.name,
+                "ticker": ticker.upper(),
+                "cik": cik,
+                "days": days,
+                "transaction_type": transaction_type,
+                "transaction_count": 0,
+                "transactions": pd.DataFrame()
+            }
+
+        df = pd.DataFrame(all_transactions)
+
+        # Sort by transaction date (newest first)
+        df = df.sort_values('transaction_date', ascending=False)
+
+        return {
+            "company": company.name,
+            "ticker": ticker.upper(),
+            "cik": cik,
+            "days": days,
+            "transaction_type": transaction_type,
+            "transaction_count": len(df),
+            "transactions": df
+        }
