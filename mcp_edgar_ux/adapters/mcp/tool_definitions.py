@@ -58,7 +58,7 @@ Example:
                 },
                 "force_refetch": {
                     "type": "boolean",
-                    "description": "Force re-download even if cached (useful after edgartools updates). Default: false",
+                    "description": "Force re-download even if cached (use if cached version seems incorrect). Default: false",
                     "default": False
                 }
             },
