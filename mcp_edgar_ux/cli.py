@@ -10,10 +10,7 @@ Usage:
   ./cli search TSLA 10-K "supply chain"   # Search within filing
   ./cli list-filings 10-K                 # List latest 10-K filings across all companies
   ./cli list-filings 10-K --ticker TSLA   # List available TSLA 10-K filings
-  ./cli list-cached                       # List all cached filings
-  ./cli list-cached --ticker TSLA         # List TSLA cached filings
-  ./cli financials TSLA                   # Get TSLA financial statements (4 years, all statements)
-  ./cli financials TSLA --periods 10      # Get 10 years of financials
+  ./cli financials TSLA                   # Get TSLA financial statements (all statements)
   ./cli financials TSLA --type income     # Get income statement only
 
 Fast iteration: Uses hexagonal core directly (no MCP layer)
@@ -32,7 +29,6 @@ from .formatters import (
     format_fetch_filing,
     format_search_filing,
     format_list_filings,
-    format_list_cached,
     format_financial_statements,
 )
 
@@ -177,34 +173,6 @@ async def list_filings_command(
         return 1
 
 
-async def list_cached_command(
-    ticker: str | None,
-    form_type: str | None,
-    cache_dir: str,
-) -> int:
-    """List cached SEC filings"""
-    try:
-        # Initialize container
-        container = Container(cache_dir=cache_dir, user_agent=get_user_agent())
-        handlers = MCPHandlers(container)
-
-        # Call handler
-        result = await handlers.list_cached(ticker=ticker, form_type=form_type)
-
-        # Use BBG Lite formatter
-        print(format_list_cached(result))
-
-        if not result["success"]:
-            return 1
-
-        return 0
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        import traceback
-        traceback.print_exc()
-        return 1
-
-
 async def financials_command(
     ticker: str,
     statement_type: str,
@@ -283,11 +251,6 @@ def main():
     list_filings_parser.add_argument("form_type", help="Form type (e.g., 10-K)")
     list_filings_parser.add_argument("--ticker", help="Optional stock ticker (e.g., TSLA). Omit to see latest filings across all companies.")
 
-    # list-cached command
-    list_cached_parser = subparsers.add_parser("list-cached", help="List cached filings")
-    list_cached_parser.add_argument("--ticker", help="Filter by ticker")
-    list_cached_parser.add_argument("--form-type", help="Filter by form type")
-
     # financials command
     financials_parser = subparsers.add_parser("financials", help="Get financial statements")
     financials_parser.add_argument("ticker", help="Stock ticker (e.g., TSLA)")
@@ -325,12 +288,6 @@ def main():
         ))
     elif args.command == "list-filings":
         return asyncio.run(list_filings_command(
-            ticker=args.ticker,
-            form_type=args.form_type,
-            cache_dir=args.cache_dir
-        ))
-    elif args.command == "list-cached":
-        return asyncio.run(list_cached_command(
             ticker=args.ticker,
             form_type=args.form_type,
             cache_dir=args.cache_dir

@@ -30,7 +30,6 @@ from .formatters import (
     format_fetch_filing,
     format_search_filing,
     format_list_filings,
-    format_list_cached,
     format_financial_statements
 )
 
@@ -84,7 +83,6 @@ async def list_tools() -> list[Tool]:
         Tool(**TOOL_SCHEMAS["fetch_filing"]),
         Tool(**TOOL_SCHEMAS["search_filing"]),
         Tool(**TOOL_SCHEMAS["list_filings"]),
-        Tool(**TOOL_SCHEMAS["list_cached"]),
         Tool(**TOOL_SCHEMAS["get_financial_statements"])
     ]
 
@@ -123,12 +121,6 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             max=arguments.get("max", 15)
         )
 
-    elif name == "list_cached":
-        result = await handlers.list_cached(
-            ticker=arguments.get("ticker"),
-            form_type=arguments.get("form_type")
-        )
-
     elif name == "get_financial_statements":
         result = await handlers.get_financial_statements(
             ticker=arguments["ticker"],
@@ -146,7 +138,6 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         "fetch_filing": format_fetch_filing,
         "search_filing": format_search_filing,
         "list_filings": format_list_filings,
-        "list_cached": format_list_cached,
         "get_financial_statements": format_financial_statements
     }
 

@@ -194,46 +194,6 @@ class MCPHandlers:
                 "error": f"Failed to list filings: {str(e)}"
             }
 
-    async def list_cached(
-        self,
-        ticker: Optional[str] = None,
-        form_type: Optional[str] = None
-    ) -> dict[str, Any]:
-        """List cached filings"""
-        try:
-            # Use service from container
-            cached, disk_usage = await asyncio.to_thread(
-                self.container.list_cached.execute,
-                ticker=ticker,
-                form_type=form_type
-            )
-
-            # Format cached filings
-            formatted_filings = []
-            for c in cached:
-                formatted_filings.append({
-                    "ticker": c.ticker,
-                    "form_type": c.form_type,
-                    "filing_date": c.filing_date,
-                    "path": str(c.path),
-                    "size_bytes": c.size_bytes,
-                    "format": c.format
-                })
-
-            return {
-                "success": True,
-                "filings": formatted_filings,
-                "count": len(formatted_filings),
-                "disk_usage_mb": round(disk_usage / 1024 / 1024, 2),
-                "cache_dir": str(self.container.cache.cache_dir)
-            }
-
-        except Exception as e:
-            return {
-                "success": False,
-                "error": f"Failed to list cached filings: {str(e)}"
-            }
-
     async def get_financial_statements(
         self,
         ticker: str,

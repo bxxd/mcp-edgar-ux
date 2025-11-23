@@ -137,9 +137,6 @@ Read("/tmp/sec-filings/TSLA/10-K/2025-04-30.txt", offset=1200, limit=50)
 
 # Search for terms
 Grep("supply chain", path="/tmp/sec-filings/TSLA/10-K/2025-04-30.txt")
-
-# List cached filings
-list_cached()
 ```
 
 ## Tools
@@ -182,30 +179,73 @@ fetch_filing("TSLA", "10-K", date="2024-01-01")
 fetch_filing("AAPL", "10-Q", format="markdown")
 ```
 
-### `list_cached(ticker=None, form_type=None)`
+### `search_filing(ticker, form_type, pattern, ...)`
 
-List filings cached on disk.
+Search for pattern in SEC filing with fuzzy matching (tolerates typos/variations).
 
 **Args:**
-- `ticker`: Optional ticker filter
-- `form_type`: Optional form type filter
+- `ticker`: Stock ticker (e.g., "TSLA", "AAPL")
+- `form_type`: Form type ("10-K", "10-Q", "8-K", etc.)
+- `pattern`: Search pattern (extended regex, case-insensitive, fuzzy=1)
+- `date`: Optional date filter (YYYY-MM-DD)
+- `context_lines`: Lines of context before/after match (default: 2)
+- `max_results`: Maximum matches to return (default: 20)
 
-**Returns:**
-```json
-{
-  "success": true,
-  "filings": [
-    {
-      "ticker": "TSLA",
-      "form_type": "10-K",
-      "filing_date": "2025-04-30",
-      "path": "/tmp/sec-filings/TSLA/10-K/2025-04-30.md",
-      "size_bytes": 247217
-    }
-  ],
-  "count": 1,
-  "disk_usage_mb": 0.24
-}
+**Returns:** Matches with line numbers and surrounding context.
+
+**Examples:**
+```python
+# Find supply chain mentions
+search_filing("TSLA", "10-K", "supply chain")
+→ Finds: "supply chain", "supply-chain", "Supply Chain" (fuzzy matching)
+
+# Search for multiple terms (OR)
+search_filing("LNG", "10-Q", "Corpus Christi|Stage 3")
+→ Matches either term
+```
+
+### `list_filings(form_type, ticker=None, ...)`
+
+List available SEC filings and their cached status.
+
+**Args:**
+- `form_type`: Form type (e.g., "10-K", "10-Q", "8-K")
+- `ticker`: Optional stock ticker. Omit to see latest across all companies.
+- `start`: Starting index (default: 0, newest first)
+- `max`: Maximum filings to return (default: 15)
+
+**Returns:** List of filings with cached status (✓ = cached locally).
+
+### `get_financial_statements(ticker, statement_type="all")`
+
+Get simplified financial statements (key metrics only, last 4 years).
+
+**IMPORTANT:** Returns SIMPLIFIED high-level metrics from SEC aggregated data.
+For detailed analysis, use `fetch_filing()` to get the full 10-K/10-Q.
+
+**Args:**
+- `ticker`: Stock ticker (e.g., "TSLA", "AAPL")
+- `statement_type`: "all" (default), "income", "balance", or "cash_flow"
+
+**Returns:** Formatted multi-year statements (income, balance sheet, cash flow).
+
+**What you get:**
+- Key GAAP metrics: Revenue, Net Income, Assets, Cash Flow, etc.
+- Last 4 annual periods
+- Clean, formatted tables
+
+**What you DON'T get:**
+- Footnotes, exhibits, MD&A
+- Non-GAAP metrics or detailed line items
+- Forward-looking statements
+
+**Examples:**
+```python
+# All statements (4 years)
+get_financial_statements("TSLA")
+
+# Income statement only
+get_financial_statements("TSLA", statement_type="income")
 ```
 
 ## Example Output

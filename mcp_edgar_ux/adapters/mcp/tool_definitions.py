@@ -10,58 +10,55 @@ TOOL_SCHEMAS = {
     "fetch_filing": {
         "name": "fetch_filing",
         "description": """
-Download SEC filing to disk, return path + preview.
+Download SEC filing to disk, return path.
 
-The Bitter Lesson: Don't dump 241K tokens into context.
-Save to disk, read what you need (Read/Grep/Bash on the path).
+Filing is saved to disk (not loaded into context). Use Read/Grep/search_filing on the returned path.
 
 Args:
 - ticker: Stock ticker (e.g., "TSLA", "AAPL")
 - form_type: Form type ("10-K", "10-Q", "8-K", "DEF 14A", etc.)
 - date: Optional date filter (YYYY-MM-DD). Returns filing >= date. Defaults to most recent.
-- format: Output format - "text" (default, clean), "markdown" (may have XBRL), or "html"
-- preview_lines: Number of lines to preview (default: 50, 0 to disable)
+- format: "text" (default, clean), "markdown" (may have XBRL), or "html"
 
 Returns:
-- path: File path to cached filing (use Read/Grep/Bash)
-- preview: First N lines with line numbers (like Read tool)
-- metadata: company, ticker, form_type, filing_date, size_bytes, total_lines, etc.
+- path: File path to cached filing
+- metadata: company, ticker, form_type, filing_date, size_bytes, total_lines
+- cached: true if already cached, false if newly downloaded
 
 Example:
   fetch_filing(ticker="TSLA", form_type="10-K")
-  → Shows path, preview (first 50 lines), metadata
+  → Returns: {path: "/var/.../TSLA/10-K/2024-01-29.txt", ...}
 
-  Then: search_filing("TSLA", "10-K", "supply chain")
-  Or: Read(path, offset=100, limit=100)
+  Then: Read(path, offset=0, limit=100) or Grep("risk factors", path)
 """,
         "inputSchema": {
             "type": "object",
             "properties": {
                 "ticker": {
                     "type": "string",
-                    "description": "Stock ticker (e.g., 'TSLA', 'AAPL')"
+                    "description": "Stock ticker (e.g. TSLA, AAPL)"
                 },
                 "form_type": {
                     "type": "string",
-                    "description": "Form type (e.g., '10-K', '10-Q', '8-K', 'DEF 14A')"
+                    "description": "Form type (e.g. 10-K, 10-Q, 8-K, DEF 14A)"
                 },
                 "date": {
                     "type": "string",
-                    "description": "Optional date filter (YYYY-MM-DD). Returns filing >= date. Defaults to most recent."
+                    "description": "Date filter (YYYY-MM-DD). Returns filing >= date, or most recent if omitted."
                 },
                 "format": {
                     "type": "string",
                     "enum": ["text", "markdown", "html"],
-                    "description": "Output format: 'text' (default, clean), 'markdown' (may have XBRL), 'html'"
+                    "description": "Output format (text=clean, markdown=may have XBRL, html=raw)"
                 },
                 "preview_lines": {
                     "type": "integer",
-                    "description": "Deprecated: Preview removed. Use Read(path, offset=0, limit=N) instead.",
+                    "description": "Deprecated - preview removed",
                     "default": 0
                 },
                 "force_refetch": {
                     "type": "boolean",
-                    "description": "Force re-download even if cached (useful after edgartools updates). Default: false",
+                    "description": "Re-download even if cached (use if cached version seems incorrect)",
                     "default": False
                 }
             },
@@ -71,65 +68,65 @@ Example:
     "search_filing": {
         "name": "search_filing",
         "description": """
-Search for pattern in SEC filing (like grep with line numbers).
+Search for pattern in SEC filing. Auto-fetches if not cached.
 
-Auto-fetches filing if not cached. Returns matches with surrounding context.
-Use this to find specific content in filings without reading the entire document.
+Fuzzy matching: tolerates 1-character differences (fuzzy=1).
+Returns matches with line numbers and surrounding context.
 
 Args:
 - ticker: Stock ticker (e.g., "TSLA", "AAPL")
 - form_type: Form type ("10-K", "10-Q", "8-K", etc.)
-- pattern: Search pattern (extended regex: use | for alternation, case-insensitive by default)
+- pattern: Search pattern (extended regex: use | for OR, case-insensitive)
 - date: Optional date filter (YYYY-MM-DD). Defaults to most recent.
 - context_lines: Lines of context before/after match (default: 2)
 - max_results: Maximum matches to return (default: 20)
 
 Returns:
-- matches: List of matching passages with line numbers
-- file_path: Cached filing path (use Read for deep dive)
-- match_count: Total number of matches found
+- matches: List with line numbers and context
+- file_path: Path to cached filing
+- match_count: Total matches found
 
 Example:
   search_filing(ticker="TSLA", form_type="10-K", pattern="supply chain")
-  → Shows all "supply chain" mentions with line numbers and context
+  → Finds: "supply chain", "supply-chain", "Supply Chain" (case/hyphen variations)
 
-  search_filing(ticker="LNG", form_type="10-Q", pattern="Corpus Christi|Stage 3|expansion")
-  → Shows matches for ANY of these terms (extended regex with | alternation)
+  search_filing(ticker="LNG", form_type="10-Q", pattern="Corpus Christi|Stage 3")
+  → Finds either term (| = OR)
 
-  Then: Read(path, offset=1230, limit=50)  # Deep dive at specific line
+  Then: Read(file_path, offset=1230, limit=50) to read around a match
 """,
         "inputSchema": {
             "type": "object",
             "properties": {
                 "ticker": {
                     "type": "string",
-                    "description": "Stock ticker (e.g., 'TSLA', 'AAPL')"
+                    "description": "Stock ticker (e.g. TSLA, AAPL)"
                 },
                 "form_type": {
                     "type": "string",
-                    "description": "Form type (e.g., '10-K', '10-Q', '8-K')"
+                    "description": "Form type (e.g. 10-K, 10-Q, 8-K)"
                 },
                 "pattern": {
                     "type": "string",
-                    "description": "Search pattern (regex supported, case-insensitive)"
+                    "description": "Search pattern (extended regex, case-insensitive, fuzzy=1)"
                 },
                 "date": {
                     "type": "string",
-                    "description": "Optional date filter (YYYY-MM-DD). Defaults to most recent."
+                    "description": "Date filter (YYYY-MM-DD). Returns filing >= date, or most recent if omitted."
                 },
                 "context_lines": {
                     "type": "integer",
-                    "description": "Lines of context before/after match (default: 2)",
+                    "description": "Lines of context before/after each match",
                     "default": 2
                 },
                 "max_results": {
                     "type": "integer",
-                    "description": "Maximum matches to return (default: 20)",
+                    "description": "Maximum matches to return",
                     "default": 20
                 },
                 "offset": {
                     "type": "integer",
-                    "description": "Skip first N matches (for pagination, default: 0)",
+                    "description": "Skip first N matches (pagination)",
                     "default": 0
                 }
             },
@@ -139,138 +136,102 @@ Example:
     "list_filings": {
         "name": "list_filings",
         "description": """
-List available SEC filings (both cached + available from SEC).
+List available SEC filings and their cached status.
 
-Discovery tool - shows which filings exist and which are already cached.
-Use this BEFORE fetch_filing to see what's available.
+Shows filings available from SEC, marks which are already cached locally.
+Use before fetch_filing to see what exists.
 
 Args:
-- ticker: Optional stock ticker (e.g., "TSLA", "AAPL"). If omitted, shows latest filings across all companies.
+- ticker: Optional stock ticker (e.g., "TSLA", "AAPL"). Omit to see latest across all companies.
 - form_type: Form type (e.g., "10-K", "10-Q", "8-K")
-- start: Starting index (default: 0, latest filings first)
+- start: Starting index (default: 0, newest first)
 - max: Maximum filings to return (default: 15)
 
 Returns:
-- filings: List of available filings (sorted by date, newest first)
-- Each filing shows: ticker, filing_date, cached (✓ or blank), size (if cached)
-- Shows which filings need to be fetched vs already cached
+- filings: List sorted by date (newest first)
+- Each shows: ticker, filing_date, cached status (✓ = cached), size
 
 Example:
   list_filings(form_type="10-K")
-  → Shows first 15 recent 10-K filings across all companies
+  → Latest 15 10-K filings across all companies
 
   list_filings(ticker="TSLA", form_type="10-K")
-  → Shows first 15 TSLA 10-K filings (latest)
+  → TSLA's 15 most recent 10-Ks
 
   list_filings(ticker="TSLA", form_type="10-K", start=15, max=15)
-  → Shows next 15 filings (pagination)
+  → Next 15 (pagination)
 
-  Then: fetch_filing("TSLA", "10-K", "2023-01-31")  # Fetch specific filing
+  Then: fetch_filing("TSLA", "10-K", "2023-01-31") to download specific filing
 """,
         "inputSchema": {
             "type": "object",
             "properties": {
                 "ticker": {
                     "type": "string",
-                    "description": "Optional stock ticker (e.g., 'TSLA', 'AAPL'). Omit to see latest filings across all companies."
+                    "description": "Stock ticker (e.g. TSLA, AAPL). Omit to see latest across all companies."
                 },
                 "form_type": {
                     "type": "string",
-                    "description": "Form type (e.g., '10-K', '10-Q', '8-K')"
+                    "description": "Form type (e.g. 10-K, 10-Q, 8-K)"
                 },
                 "start": {
                     "type": "integer",
-                    "description": "Starting index (default: 0, latest filings first)",
+                    "description": "Starting index (newest first)",
                     "default": 0
                 },
                 "max": {
                     "type": "integer",
-                    "description": "Maximum filings to return (default: 15)",
+                    "description": "Maximum filings to return",
                     "default": 15
                 }
             },
             "required": ["form_type"]
         }
     },
-    "list_cached": {
-        "name": "list_cached",
-        "description": """
-List SEC filings cached on disk.
-
-Returns all cached filings with paths, or filter by ticker/form_type.
-
-Args:
-- ticker: Optional ticker filter (e.g., "TSLA")
-- form_type: Optional form type filter (e.g., "10-K")
-
-Returns:
-- filings: List of cached filings with path, ticker, form_type, filing_date, size
-- count: Total number of cached filings
-- disk_usage_mb: Total disk usage
-
-Example:
-  list_cached()  # All cached filings
-  list_cached(ticker="TSLA")  # TSLA filings only
-  list_cached(form_type="10-K")  # All 10-Ks
-""",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "ticker": {
-                    "type": "string",
-                    "description": "Optional ticker filter"
-                },
-                "form_type": {
-                    "type": "string",
-                    "description": "Optional form type filter"
-                }
-            },
-            "required": []
-        }
-    },
     "get_financial_statements": {
         "name": "get_financial_statements",
         "description": """
-Get structured financial statements from SEC Entity Facts API.
+Get simplified financial statements (key metrics only, last 4 years).
 
-Fast, structured financial data (income statement, balance sheet, cash flow).
-Uses edgartools' built-in caching for performance.
+Returns standardized GAAP metrics: Revenue, Net Income, Assets, Cash Flow, etc.
+Data from SEC aggregated filings (clean, fast).
+
+LIMITATIONS - This does NOT include:
+- Footnotes, exhibits, MD&A, or detailed line items
+- Non-GAAP metrics or forward-looking statements
+- Full filing granularity
+
+For detailed analysis: Use fetch_filing() to get complete 10-K/10-Q.
 
 Args:
 - ticker: Stock ticker (e.g., "TSLA", "AAPL")
-- statement_type: Which statements - "all" (default), "income", "balance", or "cash_flow"
+- statement_type: "all" (default), "income", "balance", or "cash_flow"
 
 Returns:
-- Formatted multi-year financial statements with BBG Lite styling
-- Income statement: Revenue, expenses, net income
-- Balance sheet: Assets, liabilities, equity
-- Cash flow: Operating, investing, financing activities
+- Income: Revenue, expenses, net income
+- Balance: Assets, liabilities, equity
+- Cash flow: Operating, investing, financing
 
 Example:
   get_financial_statements(ticker="TSLA")
-  → Returns last 4 years of all statements
+  → 4-year summary of all statements
 
   get_financial_statements(ticker="TSLA", statement_type="income")
-  → Returns 4 years of income statement only
+  → Income statement only
 
-Use case:
-- Revenue growth trends
-- Margin analysis (gross, operating, net)
-- Balance sheet strength
-- Cash flow quality
-- YoY comparisons
+Use for: Quick trend checks (revenue growth, margins, cash generation)
 """,
         "inputSchema": {
             "type": "object",
             "properties": {
                 "ticker": {
                     "type": "string",
-                    "description": "Stock ticker (e.g., 'TSLA', 'AAPL')"
+                    "description": "Stock ticker (e.g. TSLA, AAPL)"
                 },
                 "statement_type": {
                     "type": "string",
                     "enum": ["all", "income", "balance", "cash_flow"],
-                    "description": "Which statements to return: 'all', 'income', 'balance', 'cash_flow'",
+                    "description": "Which statements to return",
                     "default": "all"
                 }
             },

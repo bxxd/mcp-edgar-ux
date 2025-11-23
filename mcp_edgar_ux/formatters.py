@@ -285,66 +285,6 @@ def format_list_filings(result: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def format_list_cached(result: dict[str, Any]) -> str:
-    """Format list_cached result as BBG Lite text.
-
-    Example output:
-        CACHED SEC FILINGS
-        ────────────────────────────────────────────────────────────────
-        3 filings cached (1.2 MB total)
-
-        Ticker   Form     Date         Format   Size
-        ────────────────────────────────────────────────────────────────
-        TSLA     10-K     2025-04-30   txt      427,000 bytes
-        TSLA     10-K     2025-04-30   md       523,400 bytes
-        NVDA     10-Q     2025-08-27   txt      313,200 bytes
-
-        ────────────────────────────────────────────────────────────────
-        Cache directory: /var/idio-mcp-cache/sec-filings
-    """
-    if not result.get("success"):
-        return f"ERROR: {result.get('error', 'Unknown error')}"
-
-    lines = []
-
-    # Header
-    lines.append("CACHED SEC FILINGS")
-    lines.append("─" * 68)
-    lines.append(f"{result['count']} filings cached ({result['disk_usage_mb']:.2f} MB total)")
-
-    if result['count'] == 0:
-        lines.append("")
-        lines.append("No filings cached yet")
-        return "\n".join(lines)
-
-    lines.append("")
-
-    # Table header
-    lines.append(f"{'Ticker':<8} {'Form':<8} {'Date':<12} {'Format':<8} {'Size':<15}")
-    lines.append("─" * 68)
-
-    # Table rows (first 50)
-    for filing in result['filings'][:50]:
-        ticker = filing['ticker']
-        form = filing['form_type']
-        date = filing['filing_date']
-        fmt = filing['format']
-        size = f"{filing['size_bytes']:,} bytes"
-        lines.append(f"{ticker:<8} {form:<8} {date:<12} {fmt:<8} {size:<15}")
-
-    # Show remaining count
-    if result['count'] > 50:
-        lines.append("")
-        lines.append(f"... {result['count'] - 50} more cached filings")
-
-    # Footer
-    lines.append("")
-    lines.append("─" * 68)
-    lines.append(f"Cache directory: {result.get('cache_dir', 'Unknown')}")
-
-    return "\n".join(lines)
-
-
 def format_financial_statements(result: dict[str, Any]) -> str:
     """Format get_financial_statements result as BBG Lite text.
 
@@ -363,7 +303,7 @@ def format_financial_statements(result: dict[str, Any]) -> str:
 
         [Full table from edgartools]
 
-        Try: Different statement type or periods
+        Try: get_financial_statements(ticker, statement_type="income") for specific statements
     """
     from edgar.richtools import repr_rich
 

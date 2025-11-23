@@ -12,7 +12,6 @@ from .services import (
     FetchFilingService,
     ListFilingsService,
     SearchFilingService,
-    ListCachedService,
     FinancialStatementsService
 )
 
@@ -31,6 +30,5 @@ __all__ = [
     "FetchFilingService",
     "ListFilingsService",
     "SearchFilingService",
-    "ListCachedService",
     "FinancialStatementsService"
 ]

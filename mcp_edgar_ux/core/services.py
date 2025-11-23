@@ -5,7 +5,7 @@ These are the entry points to the core. They coordinate between
 domain models and ports, but contain no infrastructure concerns.
 """
 from typing import Optional, Literal
-from edgar import Company, get_filings
+from edgar import Company
 
 from .domain import Filing, FilingContent, SearchResult, CachedFiling
 from .ports import FilingRepository, FilingFetcher, FilingSearcher
@@ -165,29 +165,6 @@ class SearchFilingService:
             total_matches=total_count,
             file_path=cached_path
         )
-
-
-class ListCachedService:
-    """Use case: List cached filings"""
-
-    def __init__(self, repository: FilingRepository):
-        self.repository = repository
-
-    def execute(
-        self,
-        ticker: Optional[str] = None,
-        form_type: Optional[str] = None
-    ) -> tuple[list[CachedFiling], int]:
-        """
-        List cached filings and disk usage.
-
-        Returns:
-            (cached_filings, disk_usage_bytes)
-        """
-        filings = self.repository.list_all(ticker, form_type)
-        disk_usage = self.repository.get_disk_usage()
-
-        return filings, disk_usage
 
 
 class FinancialStatementsService:

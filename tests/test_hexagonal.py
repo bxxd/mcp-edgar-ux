@@ -54,26 +54,9 @@ class TestContainer:
 
         # Check services exist
         assert container.fetch_filing is not None
-        assert container.list_cached is not None
         assert container.search_filing is not None
         assert container.list_filings is not None
         assert container.get_financials is not None
-        assert container.get_13f_holdings is not None
-        assert container.get_insider_transactions is not None
-
-    def test_list_cached_integration(self, tmp_path):
-        """Test list_cached service via container."""
-        container = Container(cache_dir=tmp_path, user_agent="test@example.com")
-
-        # Execute service
-        result = container.list_cached.execute()
-
-        # Service returns tuple (filings, disk_usage_mb)
-        assert isinstance(result, tuple)
-        filings, disk_usage = result
-        assert isinstance(filings, list)
-        assert len(filings) == 0  # Empty cache
-        assert disk_usage == 0
 
 
 class TestMCPHandlers:
@@ -88,18 +71,3 @@ class TestMCPHandlers:
 
         assert handlers.container is container
 
-    def test_list_cached_handler(self, tmp_path):
-        """Test list_cached handler returns proper dict."""
-        from mcp_edgar_ux.adapters.mcp.handlers import MCPHandlers
-        import asyncio
-
-        container = Container(cache_dir=tmp_path, user_agent="test@example.com")
-        handlers = MCPHandlers(container)
-
-        # Run async handler
-        result = asyncio.run(handlers.list_cached())
-
-        # Handlers return dicts (wrapped service results)
-        assert isinstance(result, dict)
-        assert result["success"] is True
-        assert result["count"] == 0
