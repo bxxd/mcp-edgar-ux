@@ -58,6 +58,11 @@ Example:
                     "type": "integer",
                     "description": "Deprecated: Preview removed. Use Read(path, offset=0, limit=N) instead.",
                     "default": 0
+                },
+                "force_refetch": {
+                    "type": "boolean",
+                    "description": "Force re-download even if cached (useful after edgartools updates). Default: false",
+                    "default": False
                 }
             },
             "required": ["ticker", "form_type"]
@@ -221,6 +226,55 @@ Example:
                 }
             },
             "required": []
+        }
+    },
+    "get_financial_statements": {
+        "name": "get_financial_statements",
+        "description": """
+Get structured financial statements from SEC Entity Facts API.
+
+Fast, structured financial data (income statement, balance sheet, cash flow).
+Uses edgartools' built-in caching for performance.
+
+Args:
+- ticker: Stock ticker (e.g., "TSLA", "AAPL")
+- statement_type: Which statements - "all" (default), "income", "balance", or "cash_flow"
+
+Returns:
+- Formatted multi-year financial statements with BBG Lite styling
+- Income statement: Revenue, expenses, net income
+- Balance sheet: Assets, liabilities, equity
+- Cash flow: Operating, investing, financing activities
+
+Example:
+  get_financial_statements(ticker="TSLA")
+  → Returns last 4 years of all statements
+
+  get_financial_statements(ticker="TSLA", statement_type="income")
+  → Returns 4 years of income statement only
+
+Use case:
+- Revenue growth trends
+- Margin analysis (gross, operating, net)
+- Balance sheet strength
+- Cash flow quality
+- YoY comparisons
+""",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "ticker": {
+                    "type": "string",
+                    "description": "Stock ticker (e.g., 'TSLA', 'AAPL')"
+                },
+                "statement_type": {
+                    "type": "string",
+                    "enum": ["all", "income", "balance", "cash_flow"],
+                    "description": "Which statements to return: 'all', 'income', 'balance', 'cash_flow'",
+                    "default": "all"
+                }
+            },
+            "required": ["ticker"]
         }
     }
 }

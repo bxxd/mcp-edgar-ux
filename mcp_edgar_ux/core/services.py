@@ -4,7 +4,8 @@ Application Services - Use cases that orchestrate domain logic
 These are the entry points to the core. They coordinate between
 domain models and ports, but contain no infrastructure concerns.
 """
-from typing import Optional
+from typing import Optional, Literal
+from edgar import Company, get_filings
 
 from .domain import Filing, FilingContent, SearchResult, CachedFiling
 from .ports import FilingRepository, FilingFetcher, FilingSearcher
@@ -30,7 +31,8 @@ class FetchFilingService:
         date: Optional[str] = None,
         format: str = "text",
         include_exhibits: bool = True,
-        preview_lines: int = 50
+        preview_lines: int = 50,
+        force_refetch: bool = False
     ) -> FilingContent:
         """
         Fetch filing and cache it.
@@ -40,8 +42,8 @@ class FetchFilingService:
         # Get filing metadata
         filing = self.fetcher.get_latest(ticker, form_type, date)
 
-        # Check if already cached
-        cached_path = self.repository.get(ticker, form_type, filing.filing_date, format)
+        # Check if already cached (skip if force_refetch)
+        cached_path = self.repository.get(ticker, form_type, filing.filing_date, format) if not force_refetch else None
 
         if cached_path:
             # Read from cache
@@ -186,3 +188,59 @@ class ListCachedService:
         disk_usage = self.repository.get_disk_usage()
 
         return filings, disk_usage
+
+
+class FinancialStatementsService:
+    """Use case: Get structured financial statements from Entity Facts API"""
+
+    def execute(
+        self,
+        ticker: str,
+        statement_type: Literal["all", "income", "balance", "cash_flow"] = "all"
+    ) -> dict:
+        """
+        Get multi-period financial statements using edgartools Entity Facts API.
+
+        This uses edgartools' built-in caching (HTTP cache + LRU cache).
+        No custom caching needed - edgartools handles it automatically.
+
+        Args:
+            ticker: Stock ticker (e.g., "TSLA", "AAPL")
+            statement_type: Which statements to return
+
+        Returns:
+            Dict with statement data and metadata:
+            {
+                "company_name": str,
+                "cik": str,
+                "ticker": str,
+                "statements": {
+                    "income": MultiPeriodStatement or None,
+                    "balance": MultiPeriodStatement or None,
+                    "cash_flow": MultiPeriodStatement or None
+                }
+            }
+        """
+        # Get company and facts
+        company = Company(ticker)
+        facts = company.get_facts()
+
+        # Build result
+        result = {
+            "company_name": company.name,
+            "cik": company.cik,
+            "ticker": ticker.upper(),
+            "statements": {}
+        }
+
+        # Get requested statements
+        if statement_type in ("all", "income"):
+            result["statements"]["income"] = facts.income_statement()
+
+        if statement_type in ("all", "balance"):
+            result["statements"]["balance"] = facts.balance_sheet()
+
+        if statement_type in ("all", "cash_flow"):
+            result["statements"]["cash_flow"] = facts.cash_flow()
+
+        return result

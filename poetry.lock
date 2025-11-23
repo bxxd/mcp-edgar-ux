@@ -175,8 +175,8 @@ test-harness = ["click (>=8.0.0)"]
 [package.source]
 type = "git"
 url = "https://github.com/bxxd/forked-edgartools.git"
-reference = "HEAD"
-resolved_reference = "636095e31cc9f66a60f7b3a682650402e5c04cda"
+reference = "af3c493f44520097df303f2f0be6ae79f696ebee"
+resolved_reference = "af3c493f44520097df303f2f0be6ae79f696ebee"
 
 [[package]]
 name = "exceptiongroup"
@@ -2131,4 +2131,4 @@ watchmedo = ["PyYAML (>=3.10)"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "79795c35bc6b5786729f67bcd7382baab45d32aefff3712209f8fd66c874e08d"
+content-hash = "52ff5356e93e7be21594dac7b8d2395218344a18f07feb907e820d2a28d11ab3"

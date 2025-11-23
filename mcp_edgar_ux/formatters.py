@@ -343,3 +343,80 @@ def format_list_cached(result: dict[str, Any]) -> str:
     lines.append(f"Cache directory: {result.get('cache_dir', 'Unknown')}")
 
     return "\n".join(lines)
+
+
+def format_financial_statements(result: dict[str, Any]) -> str:
+    """Format get_financial_statements result as BBG Lite text.
+
+    Example output:
+        TSLA (Tesla, Inc.) | FINANCIAL STATEMENTS
+
+        ═══════════════════════════════════════════════════════════════════
+        INCOME STATEMENT • FY 2021-2024
+        ═══════════════════════════════════════════════════════════════════
+
+                                       FY 2024      FY 2023      FY 2022      FY 2021
+        ───────────────────────────────────────────────────────────────────────────
+        Total Revenue               $97,690,000  $96,773,000  $81,462,000  $53,823,000
+        Operating Income             $7,076,000   $8,891,000  $13,656,000   $6,523,000
+        Net Income                   $7,091,000  $14,997,000  $12,556,000   $5,519,000
+
+        [Full table from edgartools]
+
+        Try: Different statement type or periods
+    """
+    from edgar.richtools import repr_rich
+
+    if not result.get("success"):
+        return f"ERROR: {result.get('error', 'Unknown error')}"
+
+    company_name = result['company_name']
+    ticker = result['ticker']
+    statements = result['statements']
+
+    lines = []
+
+    # Header
+    lines.append(f"{ticker} ({company_name}) | FINANCIAL STATEMENTS")
+    lines.append("")
+
+    # Render each statement
+    for stmt_type, stmt_obj in statements.items():
+        if stmt_obj is None:
+            continue
+
+        # Section header
+        stmt_title = {
+            "income": "INCOME STATEMENT",
+            "balance": "BALANCE SHEET",
+            "cash_flow": "CASH FLOW STATEMENT"
+        }.get(stmt_type, stmt_type.upper())
+
+        periods_str = " • ".join(stmt_obj.periods) if hasattr(stmt_obj, 'periods') else ""
+
+        lines.append("═" * 70)
+        lines.append(f"{stmt_title} {periods_str}")
+        lines.append("═" * 70)
+        lines.append("")
+
+        # Calculate width based on number of periods to prevent truncation
+        # ~150 chars for ≤4 periods, ~250 chars for 10 periods
+        num_periods = len(stmt_obj.data.columns) if hasattr(stmt_obj, 'data') else 4
+        if num_periods <= 4:
+            width = 150
+        elif num_periods <= 7:
+            width = 200
+        else:
+            width = 250
+
+        # Use repr_rich with appropriate width instead of str() to prevent number truncation
+        lines.append(repr_rich(stmt_obj.__rich__(), width=width))
+        lines.append("")
+
+    # Affordances
+    lines.append("─" * 70)
+    lines.append(f'Try: get_financial_statements("{ticker}", statement_type="income") for specific statements')
+
+    return "\n".join(lines)
+
+

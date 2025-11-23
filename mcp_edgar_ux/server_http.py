@@ -31,6 +31,7 @@ from .formatters import (
     format_search_filing,
     format_list_filings,
     format_list_cached,
+    format_financial_statements
 )
 
 # Configuration
@@ -84,6 +85,7 @@ async def list_tools() -> list[Tool]:
         Tool(**TOOL_SCHEMAS["search_filing"]),
         Tool(**TOOL_SCHEMAS["list_filings"]),
         Tool(**TOOL_SCHEMAS["list_cached"]),
+        Tool(**TOOL_SCHEMAS["get_financial_statements"])
     ]
 
 
@@ -97,7 +99,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             form_type=arguments["form_type"],
             date=arguments.get("date"),
             format=arguments.get("format", "text"),
-            preview_lines=arguments.get("preview_lines", 200)
+            preview_lines=arguments.get("preview_lines", 200),
+            force_refetch=arguments.get("force_refetch", False)
         )
 
     elif name == "search_filing":
@@ -126,6 +129,12 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             form_type=arguments.get("form_type")
         )
 
+    elif name == "get_financial_statements":
+        result = await handlers.get_financial_statements(
+            ticker=arguments["ticker"],
+            statement_type=arguments.get("statement_type", "all")
+        )
+
     else:
         return [TextContent(
             type="text",
@@ -138,6 +147,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         "search_filing": format_search_filing,
         "list_filings": format_list_filings,
         "list_cached": format_list_cached,
+        "get_financial_statements": format_financial_statements
     }
 
     formatter = formatters.get(name)

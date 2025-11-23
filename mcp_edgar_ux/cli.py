@@ -12,6 +12,9 @@ Usage:
   ./cli list-filings 10-K --ticker TSLA   # List available TSLA 10-K filings
   ./cli list-cached                       # List all cached filings
   ./cli list-cached --ticker TSLA         # List TSLA cached filings
+  ./cli financials TSLA                   # Get TSLA financial statements (4 years, all statements)
+  ./cli financials TSLA --periods 10      # Get 10 years of financials
+  ./cli financials TSLA --type income     # Get income statement only
 
 Fast iteration: Uses hexagonal core directly (no MCP layer)
 """
@@ -30,6 +33,7 @@ from .formatters import (
     format_search_filing,
     format_list_filings,
     format_list_cached,
+    format_financial_statements,
 )
 
 
@@ -201,6 +205,37 @@ async def list_cached_command(
         return 1
 
 
+async def financials_command(
+    ticker: str,
+    statement_type: str,
+    cache_dir: str,
+) -> int:
+    """Get financial statements"""
+    try:
+        # Initialize container
+        container = Container(cache_dir=cache_dir, user_agent=get_user_agent())
+        handlers = MCPHandlers(container)
+
+        # Call handler
+        result = await handlers.get_financial_statements(
+            ticker=ticker,
+            statement_type=statement_type
+        )
+
+        # Use BBG Lite formatter
+        print(format_financial_statements(result))
+
+        if not result["success"]:
+            return 1
+
+        return 0
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        return 1
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="edgar-ux CLI - Test MCP tools without server restart"
@@ -253,6 +288,13 @@ def main():
     list_cached_parser.add_argument("--ticker", help="Filter by ticker")
     list_cached_parser.add_argument("--form-type", help="Filter by form type")
 
+    # financials command
+    financials_parser = subparsers.add_parser("financials", help="Get financial statements")
+    financials_parser.add_argument("ticker", help="Stock ticker (e.g., TSLA)")
+    financials_parser.add_argument("--type", dest="statement_type", default="all",
+                                    choices=["all", "income", "balance", "cash_flow"],
+                                    help="Statement type (default: all)")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -291,6 +333,12 @@ def main():
         return asyncio.run(list_cached_command(
             ticker=args.ticker,
             form_type=args.form_type,
+            cache_dir=args.cache_dir
+        ))
+    elif args.command == "financials":
+        return asyncio.run(financials_command(
+            ticker=args.ticker,
+            statement_type=args.statement_type,
             cache_dir=args.cache_dir
         ))
     else:

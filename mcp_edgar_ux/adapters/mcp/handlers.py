@@ -21,7 +21,8 @@ class MCPHandlers:
         form_type: str,
         date: Optional[str] = None,
         format: str = "text",
-        preview_lines: int = 200
+        preview_lines: int = 200,
+        force_refetch: bool = False
     ) -> dict[str, Any]:
         """Fetch filing and return path + preview + metadata"""
         try:
@@ -44,7 +45,8 @@ class MCPHandlers:
                 date=date,
                 format=format,
                 include_exhibits=True,
-                preview_lines=preview_lines
+                preview_lines=preview_lines,
+                force_refetch=force_refetch
             )
 
             # Check if this filing was already cached before we called the service
@@ -230,4 +232,30 @@ class MCPHandlers:
             return {
                 "success": False,
                 "error": f"Failed to list cached filings: {str(e)}"
+            }
+
+    async def get_financial_statements(
+        self,
+        ticker: str,
+        statement_type: str = "all"
+    ) -> dict[str, Any]:
+        """Get structured financial statements from Entity Facts API"""
+        try:
+            # Call service (wrapped in to_thread for async compatibility)
+            result = await asyncio.to_thread(
+                self.container.get_financials.execute,
+                ticker=ticker,
+                statement_type=statement_type
+            )
+
+            # Add success flag and return
+            return {
+                "success": True,
+                **result
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to get financial statements for {ticker}: {str(e)}"
             }
