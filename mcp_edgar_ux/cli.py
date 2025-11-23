@@ -10,10 +10,7 @@ Usage:
   ./cli search TSLA 10-K "supply chain"   # Search within filing
   ./cli list-filings 10-K                 # List latest 10-K filings across all companies
   ./cli list-filings 10-K --ticker TSLA   # List available TSLA 10-K filings
-  ./cli list-cached                       # List all cached filings
-  ./cli list-cached --ticker TSLA         # List TSLA cached filings
-  ./cli financials TSLA                   # Get TSLA financial statements (4 years, all statements)
-  ./cli financials TSLA --periods 10      # Get 10 years of financials
+  ./cli financials TSLA                   # Get TSLA financial statements (all statements)
   ./cli financials TSLA --type income     # Get income statement only
 
 Fast iteration: Uses hexagonal core directly (no MCP layer)
