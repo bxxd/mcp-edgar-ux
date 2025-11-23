@@ -36,29 +36,29 @@ Example:
             "properties": {
                 "ticker": {
                     "type": "string",
-                    "description": "Stock ticker (e.g., 'TSLA', 'AAPL')"
+                    "description": "Stock ticker (e.g. TSLA, AAPL)"
                 },
                 "form_type": {
                     "type": "string",
-                    "description": "Form type (e.g., '10-K', '10-Q', '8-K', 'DEF 14A')"
+                    "description": "Form type (e.g. 10-K, 10-Q, 8-K, DEF 14A)"
                 },
                 "date": {
                     "type": "string",
-                    "description": "Optional date filter (YYYY-MM-DD). Returns filing >= date. Defaults to most recent."
+                    "description": "Date filter (YYYY-MM-DD). Returns filing >= date, or most recent if omitted."
                 },
                 "format": {
                     "type": "string",
                     "enum": ["text", "markdown", "html"],
-                    "description": "Output format: 'text' (default, clean), 'markdown' (may have XBRL), 'html'"
+                    "description": "Output format (text=clean, markdown=may have XBRL, html=raw)"
                 },
                 "preview_lines": {
                     "type": "integer",
-                    "description": "Deprecated: Preview removed. Use Read(path, offset=0, limit=N) instead.",
+                    "description": "Deprecated - preview removed",
                     "default": 0
                 },
                 "force_refetch": {
                     "type": "boolean",
-                    "description": "Force re-download even if cached (use if cached version seems incorrect). Default: false",
+                    "description": "Re-download even if cached (use if cached version seems incorrect)",
                     "default": False
                 }
             },
@@ -100,33 +100,33 @@ Example:
             "properties": {
                 "ticker": {
                     "type": "string",
-                    "description": "Stock ticker (e.g., 'TSLA', 'AAPL')"
+                    "description": "Stock ticker (e.g. TSLA, AAPL)"
                 },
                 "form_type": {
                     "type": "string",
-                    "description": "Form type (e.g., '10-K', '10-Q', '8-K')"
+                    "description": "Form type (e.g. 10-K, 10-Q, 8-K)"
                 },
                 "pattern": {
                     "type": "string",
-                    "description": "Search pattern (regex supported, case-insensitive)"
+                    "description": "Search pattern (extended regex, case-insensitive, fuzzy=1)"
                 },
                 "date": {
                     "type": "string",
-                    "description": "Optional date filter (YYYY-MM-DD). Defaults to most recent."
+                    "description": "Date filter (YYYY-MM-DD). Returns filing >= date, or most recent if omitted."
                 },
                 "context_lines": {
                     "type": "integer",
-                    "description": "Lines of context before/after match (default: 2)",
+                    "description": "Lines of context before/after each match",
                     "default": 2
                 },
                 "max_results": {
                     "type": "integer",
-                    "description": "Maximum matches to return (default: 20)",
+                    "description": "Maximum matches to return",
                     "default": 20
                 },
                 "offset": {
                     "type": "integer",
-                    "description": "Skip first N matches (for pagination, default: 0)",
+                    "description": "Skip first N matches (pagination)",
                     "default": 0
                 }
             },
@@ -168,20 +168,20 @@ Example:
             "properties": {
                 "ticker": {
                     "type": "string",
-                    "description": "Optional stock ticker (e.g., 'TSLA', 'AAPL'). Omit to see latest filings across all companies."
+                    "description": "Stock ticker (e.g. TSLA, AAPL). Omit to see latest across all companies."
                 },
                 "form_type": {
                     "type": "string",
-                    "description": "Form type (e.g., '10-K', '10-Q', '8-K')"
+                    "description": "Form type (e.g. 10-K, 10-Q, 8-K)"
                 },
                 "start": {
                     "type": "integer",
-                    "description": "Starting index (default: 0, latest filings first)",
+                    "description": "Starting index (newest first)",
                     "default": 0
                 },
                 "max": {
                     "type": "integer",
-                    "description": "Maximum filings to return (default: 15)",
+                    "description": "Maximum filings to return",
                     "default": 15
                 }
             },
@@ -226,12 +226,12 @@ Use for: Quick trend checks (revenue growth, margins, cash generation)
             "properties": {
                 "ticker": {
                     "type": "string",
-                    "description": "Stock ticker (e.g., 'TSLA', 'AAPL')"
+                    "description": "Stock ticker (e.g. TSLA, AAPL)"
                 },
                 "statement_type": {
                     "type": "string",
                     "enum": ["all", "income", "balance", "cash_flow"],
-                    "description": "Which statements to return: 'all', 'income', 'balance', 'cash_flow'",
+                    "description": "Which statements to return",
                     "default": "all"
                 }
             },
