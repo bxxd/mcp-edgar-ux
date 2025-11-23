@@ -5,7 +5,7 @@ These are the entry points to the core. They coordinate between
 domain models and ports, but contain no infrastructure concerns.
 """
 from typing import Optional, Literal
-from edgar import Company, get_filings
+from edgar import Company
 
 from .domain import Filing, FilingContent, SearchResult, CachedFiling
 from .ports import FilingRepository, FilingFetcher, FilingSearcher
