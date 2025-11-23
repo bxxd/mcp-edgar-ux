@@ -99,20 +99,24 @@ path = await asyncio.to_thread(cache.save, ...)
 ### MCP Tools (4 tools)
 
 **1. `list_filings(ticker, form_type)` - DISCOVERY**
-- Like `Glob` (discover what exists)
 - Shows available filings (both cached + available from SEC)
 - Returns: Table with cached indicator (✓), dates, sizes
 
-**2. `fetch_filing(ticker, form_type, date=None, preview_lines=50)` - DOWNLOAD + PREVIEW**
-- Like `Download + head -n 50`
-- Downloads filing (if not cached) + shows first N lines
-- Returns: Path + preview with line numbers + metadata
+**2. `fetch_filing(ticker, form_type, date=None)` - DOWNLOAD**
+- Downloads filing (if not cached), returns path
+- Filing saved to disk (not loaded into context)
+- Returns: Path + metadata
 
 **3. `search_filing(ticker, form_type, pattern, context_lines=2)` - CONTENT SEARCH**
-- Like `Grep` with line numbers (uses `grep -E` for extended regex)
-- Pattern syntax: Extended regex (use `|` for alternation, no escaping needed)
-- Searches within filing (auto-downloads if not cached)
-- Returns: Matches with context + line numbers
+- Fuzzy search using `ugrep` (fuzzy=1, tolerates 1-char differences)
+- Pattern syntax: Extended regex (use `|` for OR, case-insensitive)
+- Auto-downloads if not cached
+- Returns: Matches with line numbers + context
+
+**4. `get_financial_statements(ticker, statement_type="all")` - SIMPLIFIED FINANCIALS**
+- Returns key GAAP metrics (Revenue, Net Income, Assets, Cash Flow, etc.)
+- Last 4 annual periods from SEC aggregated data
+- SIMPLIFIED only - use fetch_filing() for detailed analysis
 
 ### Cache Strategy
 
@@ -268,11 +272,11 @@ CACHE_DIR=/tmp/sec-filings-test ./cli fetch TSLA 10-K
 
 **Core Features**: Complete ✅
 - Async architecture with asyncio.to_thread()
-- SEC API integration (historical + current filings fix)
-- Fetch filing with preview (first N lines)
-- Search filing (grep-based with line numbers)
-- List filings (discovery tool)
-- List cached (cache inspection)
+- SEC API integration (historical + current filings)
+- Fetch filing (returns path, saves to disk)
+- Search filing (ugrep-based with fuzzy matching, line numbers)
+- List filings (discovery + cached status)
+- Financial statements (simplified GAAP metrics)
 
 **MCP Integration**: Complete ✅
 - HTTP/SSE server (170 lines, port 5002)
