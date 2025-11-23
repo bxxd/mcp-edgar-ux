@@ -303,7 +303,7 @@ def format_financial_statements(result: dict[str, Any]) -> str:
 
         [Full table from edgartools]
 
-        Try: Different statement type or periods
+        Try: get_financial_statements(ticker, statement_type="income") for specific statements
     """
     from edgar.richtools import repr_rich
 
