@@ -6,6 +6,7 @@ Implements FilingFetcher port using edgartools library.
 from typing import Optional
 
 from edgar import Company, set_identity, get_current_filings, get_ticker_to_cik_lookup
+from edgar.current_filings import get_current_entries_on_page
 
 from ..core.domain import Filing
 from ..core.ports import FilingFetcher
@@ -37,6 +38,8 @@ class EdgarAdapter(FilingFetcher):
         # If no ticker specified, get latest filings across all companies
         if ticker is None:
             try:
+                # Clear edgartools' lru_cache to get fresh data (not stale cached results)
+                get_current_entries_on_page.cache_clear()
                 current_filings = get_current_filings(form=form_type, page_size=100)
             except Exception as e:
                 raise ValueError(f"Failed to get latest filings: {str(e)}")
@@ -90,6 +93,8 @@ class EdgarAdapter(FilingFetcher):
 
         # Get current/recent filings (same-day and recent)
         try:
+            # Clear edgartools' lru_cache to get fresh data
+            get_current_entries_on_page.cache_clear()
             current_filings = get_current_filings(form=form_type, page_size=100)
             # Filter for this company's CIK
             current_for_company = [f for f in current_filings if f.cik == int(company.cik)]
