@@ -192,17 +192,30 @@ def format_list_filings(result: dict[str, Any]) -> str:
     unique_tickers = set(f['ticker'].upper() for f in filings_to_show)
     multi_ticker = len(unique_tickers) > 1
 
+    # Check if we have multiple form types (if so, show form column)
+    unique_forms = set(f['form_type'].upper() for f in filings_to_show)
+    multi_form = len(unique_forms) > 1
+
     if multi_ticker:
         # Multiple tickers - show ticker column with company name
-        form_type = result['filings'][0]['form_type'].upper() if result['filings'] else ""
-        lines.append(f"{form_type} FILINGS AVAILABLE (RECENT FILINGS - PAST FEW DAYS)")
-        lines.append("─" * 100)
-        lines.append(f"{'TICKER':<10}  {'COMPANY':<30}  {'FILED':<10}  PATH (if cached)")
-        lines.append("─" * 100)
+        form_type = result['filings'][0]['form_type'].upper() if result['filings'] and not multi_form else "ALL"
+
+        if multi_form:
+            # Show FORM column when displaying multiple form types
+            lines.append(f"{form_type} FILINGS AVAILABLE (RECENT FILINGS - PAST FEW DAYS)")
+            lines.append("─" * 120)
+            lines.append(f"{'TICKER':<10}  {'FORM':<12}  {'COMPANY':<30}  {'FILED':<10}  PATH (if cached)")
+            lines.append("─" * 120)
+        else:
+            lines.append(f"{form_type} FILINGS AVAILABLE (RECENT FILINGS - PAST FEW DAYS)")
+            lines.append("─" * 100)
+            lines.append(f"{'TICKER':<10}  {'COMPANY':<30}  {'FILED':<10}  PATH (if cached)")
+            lines.append("─" * 100)
 
         # Table rows (paginated)
         for filing in filings_to_show:
             ticker = filing['ticker'][:10].ljust(10)
+            form = filing['form_type'][:12].ljust(12) if multi_form else None
             company_name = filing.get('company_name', 'N/A')
             # Truncate company name to 30 chars and pad for alignment
             company = ((company_name[:27] + '...') if company_name and len(company_name) > 30 else (company_name or 'N/A')).ljust(30)
@@ -227,10 +240,13 @@ def format_list_filings(result: dict[str, Any]) -> str:
                             path = fmt_data['path']
                             break
 
-            # Show path if cached, "(not cached - will download on demand)" otherwise
-            location = path if path else "(not cached - will download on demand)"
+            # Show path if cached, blank otherwise
+            location = path if path else ""
 
-            lines.append(f"{ticker}  {company}  {date}  {location}")
+            if multi_form:
+                lines.append(f"{ticker}  {form}  {company}  {date}  {location}")
+            else:
+                lines.append(f"{ticker}  {company}  {date}  {location}")
     else:
         # Single ticker - original format
         ticker = result['filings'][0]['ticker'].upper() if result['filings'] else "FILINGS"
@@ -271,9 +287,9 @@ def format_list_filings(result: dict[str, Any]) -> str:
                 if path:
                     lines.append(f"{date}  {path}")
                 else:
-                    lines.append(f"{date}  (not cached - will download on demand)")
+                    lines.append(f"{date}")
             else:
-                lines.append(f"{date}  (not cached - will download on demand)")
+                lines.append(f"{date}")
 
     # Footer
     lines.append("")

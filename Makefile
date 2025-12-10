@@ -5,7 +5,8 @@
 export
 
 # Default configuration (fallback if .env not present)
-PORT ?= 5002
+# Dev port: 5012, Prod port: 5002
+PORT ?= 5012
 CACHE_DIR ?= /var/idio-mcp-cache/sec-filings
 
 # Default target - show help

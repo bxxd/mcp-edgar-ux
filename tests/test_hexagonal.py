@@ -71,3 +71,39 @@ class TestMCPHandlers:
 
         assert handlers.container is container
 
+
+class TestCoreFormTypes:
+    """Test CORE_FORM_TYPES whitelist."""
+
+    def test_core_form_types_contains_essential_forms(self):
+        """Test essential forms are in CORE_FORM_TYPES."""
+        from mcp_edgar_ux.adapters.edgar import CORE_FORM_TYPES
+
+        # Must have annual/quarterly
+        assert '10-K' in CORE_FORM_TYPES
+        assert '10-Q' in CORE_FORM_TYPES
+
+        # Must have current reports
+        assert '8-K' in CORE_FORM_TYPES
+
+        # Must have registration statements
+        assert 'S-1' in CORE_FORM_TYPES
+
+        # Must have 13D/13G
+        assert 'SC 13D' in CORE_FORM_TYPES
+
+    def test_core_form_types_excludes_noise(self):
+        """Test noise forms are NOT in CORE_FORM_TYPES."""
+        from mcp_edgar_ux.adapters.edgar import CORE_FORM_TYPES
+
+        # Form 4 (insider trading) should NOT be in CORE
+        assert '4' not in CORE_FORM_TYPES
+        assert '3' not in CORE_FORM_TYPES
+        assert '5' not in CORE_FORM_TYPES
+
+        # Proxy statements removed
+        assert 'DEF 14A' not in CORE_FORM_TYPES
+
+        # Foreign issuer routine reports
+        assert '6-K' not in CORE_FORM_TYPES
+
