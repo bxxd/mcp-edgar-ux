@@ -4,12 +4,26 @@ EDGAR Adapter
 Implements FilingFetcher port using edgartools library.
 """
 from typing import Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from edgar import Company, set_identity, get_current_filings, get_ticker_to_cik_lookup
 from edgar.current_filings import get_current_entries_on_page
 
 from ..core.domain import Filing
 from ..core.ports import FilingFetcher
+
+# Core form types for 'CORE' filter - essential filings only
+CORE_FORM_TYPES = {
+    # Annual/Quarterly reports
+    '10-K', '10-K/A', '10-Q', '10-Q/A',
+    # Current reports (material events)
+    '8-K', '8-K/A',
+    # Registration statements (IPOs, secondaries, M&A)
+    'S-1', 'S-1/A', 'S-3', 'S-3/A', 'S-4', 'S-4/A',
+    # 13D/13G (activist stakes, large holders)
+    'SC 13D', 'SC 13D/A', 'SC 13G', 'SC 13G/A',
+    'SCHEDULE 13D', 'SCHEDULE 13D/A', 'SCHEDULE 13G', 'SCHEDULE 13G/A',
+}
 
 
 class EdgarAdapter(FilingFetcher):
@@ -32,24 +46,20 @@ class EdgarAdapter(FilingFetcher):
         List all available filings from SEC (historical + current).
 
         If ticker is None, returns latest filings across all companies.
+        If form_type is 'ALL' or empty string, returns all form types.
         Otherwise, combines historical filings (via company.get_filings) with current/recent
         filings (via get_current_filings) to ensure same-day filings are included.
         """
+        # Normalize form_type: 'ALL'/'CORE' -> '' (empty string for edgartools, filter later)
+        edgar_form_type = '' if form_type in ('ALL', 'CORE') else form_type
+
         # If no ticker specified, get latest filings across all companies
         if ticker is None:
-            try:
-                # Clear edgartools' lru_cache to get fresh data (not stale cached results)
-                get_current_entries_on_page.cache_clear()
-                current_filings = get_current_filings(form=form_type, page_size=100)
-            except Exception as e:
-                raise ValueError(f"Failed to get latest filings: {str(e)}")
-
             # Get CIK-to-ticker mapping for ticker lookups
             cik_to_ticker = self._get_cik_to_ticker_mapping()
 
             # Helper to convert edgar filing to domain model (no ticker override)
             def to_domain_filing_no_ticker(edgar_filing) -> Filing:
-                # Format filing date
                 filing_date = edgar_filing.filing_date
                 if hasattr(filing_date, 'strftime'):
                     date_str = filing_date.strftime('%Y-%m-%d')
@@ -58,12 +68,10 @@ class EdgarAdapter(FilingFetcher):
                 else:
                     date_str = str(filing_date)
 
-                # Look up ticker from CIK, fallback to CIK if not found
                 cik = int(edgar_filing.cik) if hasattr(edgar_filing, 'cik') and str(edgar_filing.cik).isdigit() else None
                 if cik and cik in cik_to_ticker:
                     ticker_from_cik = cik_to_ticker[cik]
                 elif cik:
-                    # No ticker found - use CIK formatted as string
                     ticker_from_cik = str(cik)
                 else:
                     ticker_from_cik = 'UNKNOWN'
@@ -78,24 +86,58 @@ class EdgarAdapter(FilingFetcher):
                     cik=str(cik) if cik else None
                 )
 
+            try:
+                get_current_entries_on_page.cache_clear()
+
+                # For CORE: query each form type in parallel
+                if form_type == 'CORE':
+                    core_forms = ['10-K', '10-Q', '8-K', 'S-1', 'S-3', 'S-4', 'SC 13D', 'SC 13G']
+
+                    def fetch_form(form: str):
+                        try:
+                            return list(get_current_filings(form=form, page_size=50))
+                        except Exception:
+                            return []
+
+                    all_filings = []
+                    with ThreadPoolExecutor(max_workers=len(core_forms)) as executor:
+                        futures = {executor.submit(fetch_form, form): form for form in core_forms}
+                        for future in as_completed(futures):
+                            all_filings.extend(future.result())
+                    current_filings = all_filings
+                else:
+                    current_filings = get_current_filings(form=edgar_form_type, page_size=200)
+            except Exception as e:
+                raise ValueError(f"Failed to get latest filings: {str(e)}")
+
             # Convert to domain models
             result = [to_domain_filing_no_ticker(f) for f in current_filings]
 
             # Sort by date descending (most recent first)
             result.sort(key=lambda x: x.filing_date, reverse=True)
-            return result
+
+            # Deduplicate by (ticker, form_type, filing_date) - keep first for each
+            seen = set()
+            deduplicated = []
+            for filing in result:
+                key = (filing.ticker, filing.form_type, filing.filing_date)
+                if key not in seen:
+                    deduplicated.append(filing)
+                    seen.add(key)
+
+            return deduplicated
 
         # If ticker specified, get filings for that specific company
         company = Company(ticker)
 
         # Get historical filings (up to ~10 PM EST previous day)
-        historical_filings = company.get_filings(form=form_type)
+        historical_filings = company.get_filings(form=edgar_form_type if edgar_form_type else None)
 
         # Get current/recent filings (same-day and recent)
         try:
             # Clear edgartools' lru_cache to get fresh data
             get_current_entries_on_page.cache_clear()
-            current_filings = get_current_filings(form=form_type, page_size=100)
+            current_filings = get_current_filings(form=edgar_form_type, page_size=100)
             # Filter for this company's CIK
             current_for_company = [f for f in current_filings if f.cik == int(company.cik)]
         except Exception:
@@ -138,9 +180,23 @@ class EdgarAdapter(FilingFetcher):
                 result.append(to_domain_filing(filing, ticker))
                 seen_accessions.add(filing.accession_number)
 
+        # Filter to core form types when 'CORE' is specified
+        if form_type == 'CORE':
+            result = [f for f in result if f.form_type in CORE_FORM_TYPES]
+
         # Sort by date descending (most recent first)
         result.sort(key=lambda x: x.filing_date, reverse=True)
-        return result
+
+        # Deduplicate by filing_date - keep first (most recent accession) for each date
+        # This handles cases where multiple filings exist for same date (amendments, etc.)
+        seen_dates = set()
+        deduplicated = []
+        for filing in result:
+            if filing.filing_date not in seen_dates:
+                deduplicated.append(filing)
+                seen_dates.add(filing.filing_date)
+
+        return deduplicated
 
     def fetch(self, filing: Filing, format: str = "text", include_exhibits: bool = True) -> str:
         """Download filing content from SEC"""

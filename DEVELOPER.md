@@ -179,7 +179,7 @@ poetry install
 ./cli search TSLA 10-K "vehicle"        # Search filing
 
 # Run MCP server (for Claude Code integration)
-make server                             # Start in background (port 5002)
+make server                             # Start in background (port 5012 dev, 5002 prod)
 make logs                               # Tail server logs
 
 # Development mode (auto-restart on file changes)
@@ -202,8 +202,8 @@ poetry run python -m mcp_edgar_ux.server --transport stdio
 
 **3. Test HTTP/SSE server** (for web integration):
 ```bash
-poetry run uvicorn mcp_edgar_ux.server_http:app --host 127.0.0.1 --port 5002
-curl http://127.0.0.1:5002/health
+poetry run uvicorn mcp_edgar_ux.server_http:app --host 127.0.0.1 --port 5012
+curl http://127.0.0.1:5012/health
 ```
 
 ### Code Quality
@@ -279,7 +279,7 @@ CACHE_DIR=/tmp/sec-filings-test ./cli fetch TSLA 10-K
 - Financial statements (simplified GAAP metrics)
 
 **MCP Integration**: Complete ✅
-- HTTP/SSE server (170 lines, port 5002)
+- HTTP/SSE server (170 lines, port 5012 dev / 5002 prod)
 - Four tools: fetch_filing, search_filing, list_filings, get_financial_statements
 - Shared tool definitions (DRY)
 - BBG Lite formatted output

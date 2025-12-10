@@ -11,8 +11,10 @@ Configuration:
 - CACHE_DIR: Filing cache directory (default: /var/idio-mcp-cache/sec-filings)
 """
 
+import logging
 import os
 import signal
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +34,35 @@ from .formatters import (
     format_list_filings,
     format_financial_statements
 )
+
+# Configure logging with millisecond precision
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s] [%(levelname)s] %(message)s",
+    datefmt="%Y/%m/%d %H:%M:%S"
+)
+
+
+class MillisecondFormatter(logging.Formatter):
+    """Custom formatter with milliseconds as :XXXX format"""
+    def formatTime(self, record: logging.LogRecord, datefmt: str | None = None) -> str:  # noqa: N802
+        """Override formatTime to include milliseconds with : separator"""
+        ct = datetime.fromtimestamp(record.created, tz=timezone.utc)
+        if datefmt:
+            s = ct.strftime("%Y/%m/%d %H:%M:%S")
+            ms = int((record.created % 1) * 10000)
+            return f"{s}:{ms:04d}"
+        return super().formatTime(record, datefmt)
+
+
+# Apply custom formatter to root logger
+for handler in logging.root.handlers:
+    handler.setFormatter(MillisecondFormatter(
+        "[%(asctime)s] [%(levelname)s] %(message)s",
+        datefmt="%Y/%m/%d %H:%M:%S"
+    ))
+
+logger = logging.getLogger(__name__)
 
 # Configuration
 DEFAULT_PORT = 5002
@@ -90,50 +121,15 @@ async def list_tools() -> list[Tool]:
 @mcp_server.call_tool()  # type: ignore[misc,no-untyped-call]
 async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     """Handle tool calls"""
+    logger.info(f"call_tool: {name} args={arguments}")
 
-    if name == "fetch_filing":
-        result = await handlers.fetch_filing(
-            ticker=arguments["ticker"],
-            form_type=arguments["form_type"],
-            date=arguments.get("date"),
-            format=arguments.get("format", "text"),
-            preview_lines=arguments.get("preview_lines", 200),
-            force_refetch=arguments.get("force_refetch", False)
-        )
+    try:
+        result = await _dispatch_tool(name, arguments)
+    except Exception as e:
+        logger.error(f"call_tool: {name} FAILED: {e}")
+        raise
 
-    elif name == "search_filing":
-        result = await handlers.search_filing(
-            ticker=arguments["ticker"],
-            form_type=arguments["form_type"],
-            pattern=arguments["pattern"],
-            date=arguments.get("date"),
-            format=arguments.get("format", "text"),
-            context_lines=arguments.get("context_lines", 2),
-            max_results=arguments.get("max_results", 20),
-            offset=arguments.get("offset", 0)
-        )
-
-    elif name == "list_filings":
-        result = await handlers.list_filings(
-            ticker=arguments.get("ticker"),
-            form_type=arguments["form_type"],
-            start=arguments.get("start", 0),
-            max=arguments.get("max", 15)
-        )
-
-    elif name == "get_financial_statements":
-        result = await handlers.get_financial_statements(
-            ticker=arguments["ticker"],
-            statement_type=arguments.get("statement_type", "all")
-        )
-
-    else:
-        return [TextContent(
-            type="text",
-            text=f"Unknown tool: {name}"
-        )]
-
-    # Format result as BBG Lite text
+    # Format result
     formatters = {
         "fetch_filing": format_fetch_filing,
         "search_filing": format_search_filing,
@@ -145,14 +141,53 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     if formatter:
         formatted_text = formatter(result)
     else:
-        # Fallback to JSON for unknown tools
         import json
         formatted_text = json.dumps(result, indent=2)
 
-    return [TextContent(
-        type="text",
-        text=formatted_text
-    )]
+    logger.info(f"call_tool: {name} returning {len(formatted_text)} chars")
+    return [TextContent(type="text", text=formatted_text)]
+
+
+async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> Any:
+    """Dispatch tool call to appropriate handler"""
+    if name == "fetch_filing":
+        return await handlers.fetch_filing(
+            ticker=arguments["ticker"],
+            form_type=arguments["form_type"],
+            date=arguments.get("date"),
+            format=arguments.get("format", "text"),
+            preview_lines=arguments.get("preview_lines", 200),
+            force_refetch=arguments.get("force_refetch", False)
+        )
+
+    elif name == "search_filing":
+        return await handlers.search_filing(
+            ticker=arguments["ticker"],
+            form_type=arguments["form_type"],
+            pattern=arguments["pattern"],
+            date=arguments.get("date"),
+            format=arguments.get("format", "text"),
+            context_lines=arguments.get("context_lines", 2),
+            max_results=arguments.get("max_results", 20),
+            offset=arguments.get("offset", 0)
+        )
+
+    elif name == "list_filings":
+        return await handlers.list_filings(
+            ticker=arguments.get("ticker"),
+            form_type=arguments["form_type"],
+            start=arguments.get("start", 0),
+            max=arguments.get("max", 15)
+        )
+
+    elif name == "get_financial_statements":
+        return await handlers.get_financial_statements(
+            ticker=arguments["ticker"],
+            statement_type=arguments.get("statement_type", "all")
+        )
+
+    else:
+        raise ValueError(f"Unknown tool: {name}")
 
 
 # HTTP routes
@@ -163,14 +198,16 @@ async def handle_ping(request: Request) -> Response:
 
 async def handle_sse(request: Request) -> Response:
     """SSE endpoint for MCP communication"""
-    print("[MCP-SERVER] New SSE connection from", request.client.host if request.client else "unknown", flush=True)
+    client_addr = request.client.host if request.client else "unknown"
+    logger.info(f"SSE connect from {client_addr}")
     async with sse_transport.connect_sse(
         request.scope, request.receive, request._send
     ) as streams:
-        print("[MCP-SERVER] SSE connected, running MCP server loop", flush=True)
+        logger.info(f"SSE session started for {client_addr}")
         await mcp_server.run(
             streams[0], streams[1], mcp_server.create_initialization_options()
         )
+        logger.info(f"SSE disconnect from {client_addr}")
     return Response()
 
 
@@ -185,7 +222,7 @@ app = Starlette(debug=True, routes=routes)
 
 # Graceful shutdown on SIGTERM
 def handle_sigterm(signum, frame):
-    print("\n[MCP-SERVER] Received SIGTERM, shutting down gracefully...", flush=True)
+    logger.info("Received SIGTERM, shutting down gracefully...")
     import sys
     sys.exit(0)
 
@@ -196,5 +233,5 @@ signal.signal(signal.SIGTERM, handle_sigterm)
 if __name__ == "__main__":
     import uvicorn
     port = get_port()
-    print(f"Starting MCP HTTP server on port {port}...", flush=True)
+    logger.info(f"Starting MCP HTTP server on port {port}")
     uvicorn.run(app, host="127.0.0.1", port=port)
