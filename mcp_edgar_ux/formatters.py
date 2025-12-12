@@ -192,13 +192,16 @@ def format_list_filings(result: dict[str, Any]) -> str:
     unique_tickers = set(f['ticker'].upper() for f in filings_to_show)
     multi_ticker = len(unique_tickers) > 1
 
-    # Check if we have multiple form types (if so, show form column)
+    # Check if we should show form column
+    # Always show for CORE/ALL (mixed form types), or if current page has multiple types
+    requested_form = result.get('requested_form_type', '').upper()
     unique_forms = set(f['form_type'].upper() for f in filings_to_show)
-    multi_form = len(unique_forms) > 1
+    multi_form = requested_form in ('CORE', 'ALL') or len(unique_forms) > 1
 
     if multi_ticker:
         # Multiple tickers - show ticker column with company name
-        form_type = result['filings'][0]['form_type'].upper() if result['filings'] and not multi_form else "ALL"
+        # Use requested form_type (e.g., "CORE") instead of first filing's type
+        form_type = result.get('requested_form_type', result['filings'][0]['form_type'] if result['filings'] else "ALL").upper()
 
         if multi_form:
             # Show FORM column when displaying multiple form types
@@ -250,26 +253,34 @@ def format_list_filings(result: dict[str, Any]) -> str:
     else:
         # Single ticker - original format
         ticker = result['filings'][0]['ticker'].upper() if result['filings'] else "FILINGS"
-        form_type = result['filings'][0]['form_type'].upper() if result['filings'] else ""
+        # Use requested form_type (e.g., "CORE") instead of first filing's type
+        requested_form_type = result.get('requested_form_type', result['filings'][0]['form_type'] if result['filings'] else "").upper()
         company_name = result['filings'][0].get('company_name', '') if result['filings'] else ""
 
         # Include company name in header if available
         if company_name:
-            lines.append(f"{ticker} ({company_name}) {form_type} FILINGS AVAILABLE")
+            lines.append(f"{ticker} ({company_name}) {requested_form_type} FILINGS AVAILABLE")
         else:
-            lines.append(f"{ticker} {form_type} FILINGS AVAILABLE")
+            lines.append(f"{ticker} {requested_form_type} FILINGS AVAILABLE")
         lines.append("─" * 70)
-        lines.append(f"FILED       LOCATION (if cached)")
+
+        # Show form type column for CORE/ALL (multiple form types)
+        if multi_form:
+            lines.append(f"{'FORM':<12}  {'FILED':<10}  LOCATION (if cached)")
+        else:
+            lines.append(f"FILED       LOCATION (if cached)")
         lines.append("─" * 70)
 
         # Table rows (paginated)
         for filing in filings_to_show:
+            form_col = filing['form_type'][:12].ljust(12) if multi_form else None
             date = filing['filing_date'][:10].ljust(10)
             cached_info = filing.get('cached', {})
 
+            # Get cached path if available
+            path = None
             if cached_info and isinstance(cached_info, dict):
                 # Get first available format path (prefer txt, then md, then any)
-                path = None
                 for fmt in ['txt', 'md']:
                     if fmt in cached_info:
                         fmt_data = cached_info[fmt]
@@ -284,12 +295,15 @@ def format_list_filings(result: dict[str, Any]) -> str:
                             path = fmt_data['path']
                             break
 
-                if path:
-                    lines.append(f"{date}  {path}")
+            location = path if path else ""
+
+            if multi_form:
+                lines.append(f"{form_col}  {date}  {location}")
+            else:
+                if location:
+                    lines.append(f"{date}  {location}")
                 else:
                     lines.append(f"{date}")
-            else:
-                lines.append(f"{date}")
 
     # Footer
     lines.append("")
@@ -324,7 +338,33 @@ def format_financial_statements(result: dict[str, Any]) -> str:
     from edgar.richtools import repr_rich
 
     if not result.get("success"):
-        return f"ERROR: {result.get('error', 'Unknown error')}"
+        error_msg = result.get('error', 'Unknown error')
+        ticker = result.get('ticker', 'UNKNOWN')
+
+        # Check for common error patterns and format nicely
+        if "No financial data available" in error_msg or "warrant" in error_msg.lower():
+            lines = [
+                f"{ticker} | FINANCIAL STATEMENTS",
+                "",
+                "═" * 70,
+                "NO DATA AVAILABLE",
+                "═" * 70,
+                "",
+                "This ticker does not have financial statement data.",
+                "",
+                "Common reasons:",
+                "  • Warrants (W suffix) - e.g., DNMXW is a warrant for DNMX",
+                "  • Units (U suffix) - bundled securities",
+                "  • Rights (R suffix) - subscription rights",
+                "  • Recently listed companies - data not yet available",
+                "",
+                "─" * 70,
+                "Try: Use the underlying common stock ticker instead",
+                f"     e.g., if {ticker} is a warrant, try {ticker.rstrip('WUR')}",
+            ]
+            return "\n".join(lines)
+
+        return f"ERROR: {error_msg}"
 
     company_name = result['company_name']
     ticker = result['ticker']

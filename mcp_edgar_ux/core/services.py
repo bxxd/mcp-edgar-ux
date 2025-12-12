@@ -202,6 +202,14 @@ class FinancialStatementsService:
         company = Company(ticker)
         facts = company.get_facts()
 
+        # Handle missing facts (common for warrants, units, rights, etc.)
+        if facts is None:
+            raise ValueError(
+                f"No financial data available for {ticker}. "
+                "This ticker may be a warrant, unit, or rights issue which do not file financial statements. "
+                "Try the underlying common stock ticker instead."
+            )
+
         # Build result
         result = {
             "company_name": company.name,

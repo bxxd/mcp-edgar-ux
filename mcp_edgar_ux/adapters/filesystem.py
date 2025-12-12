@@ -8,6 +8,7 @@ from typing import Optional
 
 from ..core.domain import CachedFiling, FilingContent
 from ..core.ports import FilingRepository
+from .edgar import CORE_FORM_TYPES
 
 
 class FilesystemCache(FilingRepository):
@@ -16,9 +17,13 @@ class FilesystemCache(FilingRepository):
     def __init__(self, cache_dir: str | Path):
         self.cache_dir = Path(cache_dir)
 
+    def _sanitize_form_type(self, form_type: str) -> str:
+        """Sanitize form type for use as directory name (replace / and space with _)"""
+        return form_type.upper().replace('/', '_').replace(' ', '_')
+
     def _ensure_dir(self, ticker: str, form_type: str) -> Path:
         """Ensure cache directory exists for ticker/form"""
-        path = self.cache_dir / ticker.upper() / form_type.upper()
+        path = self.cache_dir / ticker.upper() / self._sanitize_form_type(form_type)
         path.mkdir(parents=True, exist_ok=True)
         return path
 
@@ -64,15 +69,26 @@ class FilesystemCache(FilingRepository):
             for form_dir in ticker_dir.iterdir():
                 if not form_dir.is_dir():
                     continue
-                if form_type and form_dir.name.upper() != form_type.upper():
-                    continue
+                # Handle special form_type filters
+                # Directory names have / and space replaced with _ (sanitized)
+                dir_form_type = form_dir.name.upper()
+                if form_type:
+                    if form_type.upper() == 'ALL':
+                        pass  # Include all form types
+                    elif form_type.upper() == 'CORE':
+                        # Compare sanitized directory name against sanitized CORE_FORM_TYPES
+                        sanitized_core = {f.upper().replace('/', '_').replace(' ', '_') for f in CORE_FORM_TYPES}
+                        if dir_form_type not in sanitized_core:
+                            continue
+                    elif dir_form_type != self._sanitize_form_type(form_type):
+                        continue
 
                 for file_path in form_dir.iterdir():
                     if file_path.is_file() and file_path.suffix in ['.md', '.txt', '.html']:
                         stat = file_path.stat()
                         filings.append(CachedFiling(
                             ticker=ticker_dir.name,
-                            form_type=form_dir.name,
+                            form_type=dir_form_type,  # Use unsanitized form type (e.g., "10-K/A" not "10-K_A")
                             filing_date=file_path.stem,
                             path=file_path,
                             size_bytes=stat.st_size,

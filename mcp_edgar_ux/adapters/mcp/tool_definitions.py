@@ -96,10 +96,12 @@ search_filing("LNG", "10-Q", "Corpus|Stage 3") → OR patterns with |
         "name": "list_filings",
         "description": """List available SEC filings with cached status. Newest first.
 
-list_filings(form_type="10-K") → latest 15 10-Ks across all companies
-list_filings(form_type="ALL") → latest 15 filings of any type across all companies
-list_filings("TSLA", "10-K") → TSLA's 10-Ks
+RECOMMENDED: Use 'CORE' for essential filings (10-K, 10-Q, 20-F, 8-K, S-1/S-3/S-4, 13D/13G).
+
+list_filings("TSLA", "CORE") → TSLA's essential filings (recommended)
+list_filings("TSLA", "10-K") → TSLA's 10-Ks only
 list_filings("TSLA", "ALL") → all of TSLA's filings
+list_filings(form_type="CORE") → latest CORE filings across all companies
 list_filings("TSLA", "10-K", start=15) → pagination
 """,
         "inputSchema": {
@@ -111,7 +113,7 @@ list_filings("TSLA", "10-K", start=15) → pagination
                 },
                 "form_type": {
                     "type": "string",
-                    "description": "Form type (e.g. 10-K, 10-Q, 8-K, ALL). Use 'ALL' for all form types."
+                    "description": "Form type: 'CORE' (recommended - 10-K, 10-Q, 20-F, 8-K, S-*, 13D/G), 'ALL', or specific (10-K, 10-Q, etc.)"
                 },
                 "start": {
                     "type": "integer",
