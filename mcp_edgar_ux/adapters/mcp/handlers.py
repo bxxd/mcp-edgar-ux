@@ -180,6 +180,7 @@ class MCPHandlers:
 
             return {
                 "success": True,
+                "requested_form_type": form_type,  # Preserve requested form_type for header
                 "filings": filings,
                 "count": len(filings),
                 "cached_count": len(cached),
@@ -217,5 +218,6 @@ class MCPHandlers:
         except Exception as e:
             return {
                 "success": False,
+                "ticker": ticker.upper(),
                 "error": f"Failed to get financial statements for {ticker}: {str(e)}"
             }

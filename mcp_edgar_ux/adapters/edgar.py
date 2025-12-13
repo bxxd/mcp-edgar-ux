@@ -14,15 +14,16 @@ from ..core.ports import FilingFetcher
 
 # Core form types for 'CORE' filter - essential filings only
 CORE_FORM_TYPES = {
-    # Annual/Quarterly reports
+    # Annual/Quarterly reports (US companies)
     '10-K', '10-K/A', '10-Q', '10-Q/A',
+    # Annual/Quarterly reports (Foreign companies)
+    '20-F', '20-F/A', '6-K', '6-K/A',
     # Current reports (material events)
     '8-K', '8-K/A',
     # Registration statements (IPOs, secondaries, M&A)
     'S-1', 'S-1/A', 'S-3', 'S-3/A', 'S-4', 'S-4/A',
-    # 13D/13G (activist stakes, large holders)
-    'SC 13D', 'SC 13D/A', 'SC 13G', 'SC 13G/A',
-    'SCHEDULE 13D', 'SCHEDULE 13D/A', 'SCHEDULE 13G', 'SCHEDULE 13G/A',
+    # Note: 13D/13G excluded - too noisy (passive holder filings)
+    # Use ALL with ticker or specific form type to find ownership filings
 }
 
 
@@ -89,9 +90,10 @@ class EdgarAdapter(FilingFetcher):
             try:
                 get_current_entries_on_page.cache_clear()
 
-                # For CORE: query each form type in parallel
-                if form_type == 'CORE':
-                    core_forms = ['10-K', '10-Q', '8-K', 'S-1', 'S-3', 'S-4', 'SC 13D', 'SC 13G']
+                # For CORE or ALL (without ticker): query core form types in parallel
+                # ALL without ticker would return too much noise (mutual fund forms, etc.)
+                if form_type in ('CORE', 'ALL'):
+                    core_forms = ['10-K', '10-Q', '20-F', '6-K', '8-K', 'S-1', 'S-3', 'S-4']
 
                     def fetch_form(form: str):
                         try:
@@ -112,6 +114,11 @@ class EdgarAdapter(FilingFetcher):
 
             # Convert to domain models
             result = [to_domain_filing_no_ticker(f) for f in current_filings]
+
+            # Filter to core form types when 'CORE' is specified
+            # SEC API returns variants (e.g., "S-4 POS" when querying "S-4"), so filter strictly
+            if form_type == 'CORE':
+                result = [f for f in result if f.form_type in CORE_FORM_TYPES]
 
             # Sort by date descending (most recent first)
             result.sort(key=lambda x: x.filing_date, reverse=True)
