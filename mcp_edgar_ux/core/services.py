@@ -338,7 +338,7 @@ class FinancialStatementsService:
         Returns:
             Dict with statement data and metadata
         """
-        from edgar.entity.entity_facts import get_company_facts
+        from edgar import clear_company_facts_cache
 
         # Get company and facts
         company = Company(ticker)
@@ -370,9 +370,8 @@ class FinancialStatementsService:
         if statement_type in ("all", "cash_flow"):
             result["statements"]["cash_flow"] = facts.cash_flow()
 
-        # Clear edgartools' LRU cache for company facts to prevent memory accumulation.
-        # Each company's facts JSON can be 5-20MB parsed; the lru_cache(maxsize=32) would
-        # retain up to 32 of these indefinitely. We've already extracted what we need.
-        get_company_facts.cache_clear()
+        # Drop edgartools' in-memory company facts (40-80 MB per major company).
+        # We've already extracted what we need.
+        clear_company_facts_cache()
 
         return result
