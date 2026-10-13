@@ -5,6 +5,7 @@ Implements FilingFetcher port using edgartools library.
 """
 import logging
 import re
+import textwrap
 import time
 from datetime import datetime, timedelta
 from typing import Optional
@@ -12,7 +13,6 @@ from zoneinfo import ZoneInfo
 from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FutureTimeoutError
 
 from edgar import Company, set_identity, get_current_filings, get_ticker_to_cik_lookup
-from edgar.current_filings import get_current_entries_on_page
 
 # Import httpx exceptions for better error handling
 try:
@@ -192,6 +192,30 @@ _THOUSANDS_LAST_PERIOD = "2022-12-31"   # first period reported in whole dollars
 _THOUSANDS_LAST_FILED = "2023-01-03"    # amendment effective date
 
 
+# edgartools 5.x renders each prose paragraph as one line (5,000+ chars in a
+# 10-K). Agents read cached filings by line — Read(path, offset, limit) and
+# search_filing both return whole lines, and Read truncates past 2,000 chars —
+# so prose is re-wrapped at the 80 columns the 4.x render produced. Table rows
+# (aligned columns, box drawing) are left exactly as rendered.
+_TEXT_WIDTH = 80
+_TABLE_ROW = re.compile(r"\S {3,}\S|[│─┃━]")
+
+
+def _wrap_prose(text: str) -> str:
+    """Wrap prose lines longer than _TEXT_WIDTH, keeping their indent"""
+    out = []
+    for line in text.split("\n"):
+        if len(line) <= _TEXT_WIDTH or _TABLE_ROW.search(line):
+            out.append(line)
+            continue
+        indent = line[:len(line) - len(line.lstrip())]
+        out.extend(textwrap.wrap(
+            line, width=_TEXT_WIDTH, initial_indent="", subsequent_indent=indent,
+            break_long_words=False, break_on_hyphens=False,
+        ))
+    return "\n".join(out)
+
+
 def _format_appends_exhibits(format: str) -> bool:
     """Does fetch() append EX-* exhibits when rendering in this format?
 
@@ -305,9 +329,6 @@ class EdgarAdapter(FilingFetcher):
                     return cached_result
                 else:
                     # Stale or cache miss - try to fetch fresh data
-                    # Clear edgartools' LRU cache to ensure we get fresh data when TTL expires
-                    get_current_entries_on_page.cache_clear()
-
                     try:
                         # For CORE or ALL (without ticker): query core form types in parallel
                         # ALL without ticker would return too much noise (mutual fund forms, etc.)
@@ -452,7 +473,6 @@ class EdgarAdapter(FilingFetcher):
                 current_domain_filings = cached_result
             else:
                 # Stale or cache miss - try to fetch fresh data
-                get_current_entries_on_page.cache_clear()
                 try:
                     cf = get_current_filings(form=edgar_form_type, page_size=100)
                     raw_current = list(zip(list(cf), _feed_accepted_column(cf)))
@@ -724,6 +744,8 @@ class EdgarAdapter(FilingFetcher):
                     f"document without exhibits"
                 )
 
+        if format == "text":
+            content = _wrap_prose(content)
         return content
 
     def _fetch_document(self, edgar_filing, filing: Filing, document: str) -> str:

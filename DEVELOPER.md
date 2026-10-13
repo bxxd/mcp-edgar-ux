@@ -44,7 +44,8 @@ Grep("rare earth", path=cached_path)
 
 ```
 Python 3.11+
-├── edgartools     → SEC EDGAR API (mature, handles SEC quirks)
+├── edgartools     → SEC EDGAR API — pinned to a commit on bxxd/forked-edgartools:
+│                     an upstream release plus our parser fixes (see pyproject.toml)
 ├── mcp            → Model Context Protocol (stdio + SSE transports)
 ├── starlette      → Async web framework (SSE server)
 ├── markdownify    → HTML → Markdown conversion
@@ -393,7 +394,10 @@ CACHE_DIR=/tmp/sec-filings-test ./cli fetch TSLA 10-K
 - `tests/test_cache_addressing.py` — drives the real `FetchFilingService`
   against the real `FilesystemCache` with a fake SEC. Covers two filings on one
   date, cache hits for a CIK-addressed filer, and disk accounting ✅
-- 45 tests, all passing, **none of which touch the network**. There is still no
+- `tests/test_text_render.py` — the text render's line shape: prose re-wrapped
+  at 80 columns (edgartools 5.x emits a paragraph as one line, and Read
+  truncates past 2,000 chars), table rows left verbatim ✅
+- 51 tests, all passing, **none of which touch the network**. There is still no
   coverage of a real SEC response, and no CI — nothing runs the suite on push —
   and `make lint` cannot run because mypy and ruff are absent from the dev
   dependencies.
