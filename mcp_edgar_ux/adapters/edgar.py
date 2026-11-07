@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FutureTimeoutError
 
 from edgar import Company, set_identity, get_current_filings, get_ticker_to_cik_lookup
+from edgar.filtering import FORM_ALIASES
 
 # Import httpx exceptions for better error handling
 try:
@@ -255,6 +256,20 @@ CORE_FORM_TYPES = {
     # Note: 13D/13G excluded - too noisy (passive holder filings)
     # Use ALL with ticker or specific form type to find ownership filings
 }
+
+
+def _is_form(form: str, requested: str) -> bool:
+    """Whether a filing of `form` is the form that was asked for.
+
+    Exact, except for edgartools' own aliases ('N-PORT' names 'NPORT-P').
+    The listing behind a request is wider than the request: edgartools adds
+    the /A amendments and EDGAR's current feed prefix-matches ('S-1' also
+    returns S-1/A and S-1MEF). An amendment is a different document — an
+    S-1/A is not the S-1 it amends.
+    """
+    wanted = requested.strip().upper()
+    names = {wanted} | {alias.upper() for alias in FORM_ALIASES.get(wanted, [])}
+    return form.strip().upper() in names
 
 
 class EdgarAdapter(FilingFetcher):
@@ -932,24 +947,33 @@ class EdgarAdapter(FilingFetcher):
         """Get metadata for latest filing (or first filing >= date)
 
         If ticker is None, returns latest filing across all companies.
+
+        Resolves to exactly the form asked for. list_available() is a family
+        listing (S-1 alongside S-1/A and S-1MEF); resolving newest-first over
+        it returns an amendment as "the S-1". CORE and ALL name families, so
+        they resolve across their members.
         """
         filings = self.list_available(ticker, form_type)
-
-        if not filings:
-            ticker_str = ticker if ticker else "any ticker"
-            raise ValueError(f"No {form_type} filings found for {ticker_str}")
-
-        # Filter by date if specified
         if date:
-            filtered = [f for f in filings if f.filing_date >= date]
-            if not filtered:
-                ticker_str = ticker if ticker else "any ticker"
-                raise ValueError(
-                    f"No {form_type} filings found for {ticker_str} on or after {date}"
-                )
-            # Return the oldest filing that matches (closest to the target date)
-            # filings are sorted newest-first, so filtered[-1] is the oldest match
-            return filtered[-1]
+            filings = [f for f in filings if f.filing_date >= date]
 
-        # Return most recent
-        return filings[0]
+        if form_type in ('ALL', 'CORE'):
+            matches = filings
+        else:
+            matches = [f for f in filings if _is_form(f.form_type, form_type)]
+
+        if not matches:
+            ticker_str = ticker if ticker else "any ticker"
+            window = f" on or after {date}" if date else ""
+            message = f"No {form_type} filings found for {ticker_str}{window}"
+            related = sorted({f.form_type for f in filings})
+            if related:
+                message += (
+                    f". Related forms in that window: {', '.join(related)} — "
+                    f"pass one as form_type to fetch it"
+                )
+            raise ValueError(message)
+
+        # Sorted newest-first. With a date, the oldest match is the one closest
+        # to the target date; without one, the most recent.
+        return matches[-1] if date else matches[0]
