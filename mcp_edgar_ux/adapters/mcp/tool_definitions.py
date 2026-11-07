@@ -38,7 +38,7 @@ checkbox and footnotes. For aggregated insider reads, prefer insider_activity().
                 },
                 "form_type": {
                     "type": "string",
-                    "description": "Form type (e.g. 10-K, 10-Q, 8-K, DEF 14A)"
+                    "description": "Form type, matched exactly (e.g. 10-K, 10-Q, 8-K, DEF 14A). 'S-1' never returns the S-1/A — pass 'S-1/A' for the amendment."
                 },
                 "date": {
                     "type": "string",
@@ -79,7 +79,7 @@ search_filing("LNG", "10-Q", "Corpus|Stage 3") → OR patterns with |
                 },
                 "form_type": {
                     "type": "string",
-                    "description": "Form type (e.g. 10-K, 10-Q, 8-K)"
+                    "description": "Form type, matched exactly (e.g. 10-K, 10-Q, 8-K). Amendments are their own form: '10-K/A'."
                 },
                 "pattern": {
                     "type": "string",
@@ -143,7 +143,7 @@ CORE EXCLUDES, by design — do not use CORE to conclude something was not filed
                 },
                 "form_type": {
                     "type": "string",
-                    "description": "Form type: 'CORE' (recommended - 10-K, 10-Q, 20-F, 6-K, 8-K, S-1/S-3/S-3ASR/S-4; excludes ownership, 13D/G and proxy forms), 'ALL', or specific (10-K, 10-Q, DEF 14A, etc.)"
+                    "description": "Form type: 'CORE' (recommended - 10-K, 10-Q, 20-F, 6-K, 8-K, S-1/S-3/S-3ASR/S-4; excludes ownership, 13D/G and proxy forms), 'ALL', or specific (10-K, 10-Q, DEF 14A, etc.). A specific form lists its family — 'S-1' also shows S-1/A rows, labeled in the FORM column; fetch each by its own form."
                 },
                 "start": {
                     "type": "integer",
@@ -212,7 +212,7 @@ any of them with fetch_filing(..., document="<sequence or filename>").
                 },
                 "form_type": {
                     "type": "string",
-                    "description": "Form type (e.g. 13F-HR, 10-K, 8-K)"
+                    "description": "Form type, matched exactly (e.g. 13F-HR, 10-K, 8-K). Amendments are their own form: '13F-HR/A'."
                 },
                 "date": {
                     "type": "string",

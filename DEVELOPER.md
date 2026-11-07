@@ -152,6 +152,13 @@ an 8-K's 44 extras are all silent; a 13F's information table always fires.
 **2. `fetch_filing(ticker, form_type, date=None, format="text", document=None)` - DOWNLOAD**
 - Downloads filing (if not cached), returns path
 - Filing saved to disk (not loaded into context)
+- `form_type` resolves **exactly**: `S-1` never returns an `S-1/A`, `10-K` never a
+  `10-K/A`. The listing behind it is wider than the request (edgartools adds the
+  `/A` forms; EDGAR's current feed prefix-matches, so `S-1` also yields `S-1MEF`),
+  and newest-first over that list hands back an amendment as the original. Same
+  rule for `search_filing`, `list_documents`, `thirteenf_holdings`. `CORE`/`ALL`
+  name families and resolve across members. No exact match → an error naming the
+  related forms in the window
 - Returns the submission's PRIMARY document, and **flags the fetch PARTIAL**
   when the accession holds substance it did not return (see above)
 - `document=<sequence|filename>` fetches a specific document from the accession
@@ -397,7 +404,11 @@ CACHE_DIR=/tmp/sec-filings-test ./cli fetch TSLA 10-K
 - `tests/test_text_render.py` — the text render's line shape: prose re-wrapped
   at 80 columns (edgartools 5.x emits a paragraph as one line, and Read
   truncates past 2,000 chars), table rows left verbatim ✅
-- 51 tests, all passing, **none of which touch the network**. There is still no
+- `tests/test_form_resolution.py` — `get_latest` resolves the exact form asked
+  for: an original is not shadowed by a newer amendment, edgartools aliases
+  (`N-PORT` → `NPORT-P`) still resolve, CORE/ALL resolve across members, and a
+  miss names the related forms ✅
+- 60 tests, all passing, **none of which touch the network**. There is still no
   coverage of a real SEC response, and no CI — nothing runs the suite on push —
   and `make lint` cannot run because mypy and ruff are absent from the dev
   dependencies.
