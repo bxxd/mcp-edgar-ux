@@ -113,7 +113,6 @@ mcp_server = Server("edgar-ux-mcp")
 sse_transport = SseServerTransport("/messages")
 
 # Streamable HTTP transport — stateless, survives server restarts
-# (SSE sessions die on restart; each streamable call is self-contained)
 streamable_transport = StreamableHTTPServerTransport(
     mcp_session_id=None,
     is_json_response_enabled=True,
@@ -246,8 +245,12 @@ async def handle_sse(request: Request) -> Response:
         request.scope, request.receive, request._send
     ) as streams:
         logger.info(f"SSE session started for {client_addr}")
+        # stateless: a client whose SSE stream reconnects after a server restart
+        # opens a new session without repeating initialize, and a stateful session
+        # rejects every call on it until the agent reconnects by hand.
         await mcp_server.run(
-            streams[0], streams[1], mcp_server.create_initialization_options()
+            streams[0], streams[1], mcp_server.create_initialization_options(),
+            stateless=True,
         )
         logger.info(f"SSE disconnect from {client_addr}")
     return Response()
