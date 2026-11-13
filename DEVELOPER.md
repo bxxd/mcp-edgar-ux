@@ -408,7 +408,11 @@ CACHE_DIR=/tmp/sec-filings-test ./cli fetch TSLA 10-K
   for: an original is not shadowed by a newer amendment, edgartools aliases
   (`N-PORT` → `NPORT-P`) still resolve, CORE/ALL resolve across members, and a
   miss names the related forms ✅
-- 60 tests, all passing, **none of which touch the network**. There is still no
+- `tests/test_exhibit_render.py` — appended exhibits render through the same
+  `edgar.documents` parser as the primary, not edgartools' `Attachment.text()`,
+  whose legacy parser drops any `<h1>`-`<h6>` it does not read as a short
+  title. DFIN credit agreements put whole sections inside `<h2>` ✅
+- 64 tests, all passing, **none of which touch the network**. There is still no
   coverage of a real SEC response, and no CI — nothing runs the suite on push —
   and `make lint` cannot run because mypy and ruff are absent from the dev
   dependencies.
