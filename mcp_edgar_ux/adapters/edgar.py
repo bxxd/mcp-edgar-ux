@@ -13,6 +13,8 @@ from zoneinfo import ZoneInfo
 from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FutureTimeoutError
 
 from edgar import Company, set_identity, get_current_filings, get_ticker_to_cik_lookup
+from edgar.core import has_html_content
+from edgar.documents import HTMLParser, ParserConfig
 from edgar.filtering import FORM_ALIASES
 
 # Import httpx exceptions for better error handling
@@ -215,6 +217,23 @@ def _wrap_prose(text: str) -> str:
             break_long_words=False, break_on_hyphens=False,
         ))
     return "\n".join(out)
+
+
+def _exhibit_text(exhibit) -> Optional[str]:
+    """Render one exhibit to text with the parser Filing.text() uses for the primary.
+
+    edgartools' Attachment.text() still runs the legacy edgar.files.html parser,
+    which takes text only from <p>, <div> and <table>; an <h1>-<h6> survives only
+    when its heading heuristic reads it as a short title. Credit agreements laid
+    out by DFIN wrap whole sections, heading and body, in <h2>, so that parser
+    dropped them without a trace (VITL EX-10.2 SECTION 6.06, EX-10.3 Section 7.12).
+    """
+    if exhibit.is_text() and (exhibit.is_html() or has_html_content(exhibit.content)):
+        document = HTMLParser(ParserConfig()).parse(exhibit.content)
+        if document is None or document.is_empty:
+            return None
+        return document.text(table_max_col_width=500)
+    return exhibit.text()
 
 
 def _format_appends_exhibits(format: str) -> bool:
@@ -743,7 +762,7 @@ class EdgarAdapter(FilingFetcher):
             try:
                 for exhibit in edgar_filing.exhibits:
                     if exhibit.document_type.startswith('EX-'):
-                        ex_text = exhibit.text() if format != "html" else exhibit.content
+                        ex_text = _exhibit_text(exhibit) if format != "html" else exhibit.content
                         if ex_text:
                             separator = "\n\n" + "=" * 70 + "\n"
                             separator += f"EXHIBIT: {exhibit.document_type} ({exhibit.document})\n"
