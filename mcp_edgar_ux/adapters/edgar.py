@@ -13,6 +13,8 @@ from zoneinfo import ZoneInfo
 from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FutureTimeoutError
 
 from edgar import Company, set_identity, get_current_filings, get_ticker_to_cik_lookup
+from edgar.core import has_html_content
+from edgar.documents import HTMLParser, ParserConfig
 from edgar.filtering import FORM_ALIASES
 
 # Import httpx exceptions for better error handling
@@ -215,6 +217,23 @@ def _wrap_prose(text: str) -> str:
             break_long_words=False, break_on_hyphens=False,
         ))
     return "\n".join(out)
+
+
+def _exhibit_text(exhibit) -> Optional[str]:
+    """Render one exhibit to text with the parser Filing.text() uses for the primary.
+
+    edgartools' Attachment.text() still runs the legacy edgar.files.html parser,
+    which takes text only from <p>, <div> and <table>; an <h1>-<h6> survives only
+    when its heading heuristic reads it as a short title. Credit agreements laid
+    out by DFIN wrap whole sections, heading and body, in <h2>, so that parser
+    dropped them without a trace (VITL EX-10.2 SECTION 6.06, EX-10.3 Section 7.12).
+    """
+    if exhibit.is_text() and (exhibit.is_html() or has_html_content(exhibit.content)):
+        document = HTMLParser(ParserConfig()).parse(exhibit.content)
+        if document is None or document.is_empty:
+            return None
+        return document.text(table_max_col_width=500)
+    return exhibit.text()
 
 
 def _format_appends_exhibits(format: str) -> bool:
@@ -741,23 +760,34 @@ class EdgarAdapter(FilingFetcher):
         # Append exhibits (critical for 8-Ks where Exhibit 99.1 has the actual data)
         if include_exhibits:
             try:
-                for exhibit in edgar_filing.exhibits:
-                    if exhibit.document_type.startswith('EX-'):
-                        ex_text = exhibit.text() if format != "html" else exhibit.content
-                        if ex_text:
-                            separator = "\n\n" + "=" * 70 + "\n"
-                            separator += f"EXHIBIT: {exhibit.document_type} ({exhibit.document})\n"
-                            separator += "=" * 70 + "\n\n"
-                            content += separator + ex_text
+                exhibits = [e for e in edgar_filing.exhibits if e.document_type.startswith('EX-')]
             except Exception as e:
                 # The primary document in hand beats an error, but this must not
                 # be silent: the caller is about to be told the exhibits are
                 # included when they are not.
                 logger.warning(
-                    f"Exhibit append failed for {filing.form_type} "
+                    f"Exhibit list failed for {filing.form_type} "
                     f"{filing.accession_number}: {e} — returning the primary "
                     f"document without exhibits"
                 )
+                exhibits = []
+            for exhibit in exhibits:
+                separator = "\n\n" + "=" * 70 + "\n"
+                separator += f"EXHIBIT: {exhibit.document_type} ({exhibit.document})\n"
+                separator += "=" * 70 + "\n\n"
+                try:
+                    ex_text = _exhibit_text(exhibit) if format != "html" else exhibit.content
+                except Exception as e:
+                    # One exhibit that won't render must not cost the ones after it.
+                    # Say so in the text, where the reader will see the gap.
+                    logger.warning(
+                        f"Exhibit {exhibit.document_type} ({exhibit.document}) failed to "
+                        f"render for {filing.form_type} {filing.accession_number}: {e}"
+                    )
+                    content += separator + f"[Exhibit not rendered: {type(e).__name__}: {e}]\n"
+                    continue
+                if ex_text:
+                    content += separator + ex_text
 
         if format == "text":
             content = _wrap_prose(content)

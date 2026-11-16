@@ -426,7 +426,11 @@ CACHE_DIR=/tmp/sec-filings-test ./cli fetch TSLA 10-K
 - `tests/test_read_grep.py` — `read`/`grep` by path against the real cache
   and ugrep: windows, caps, clipping, newest-first folder sweeps, paging, and
   every way out of the cache root refused (needs `ugrep`) ✅
-- 81 tests, all passing, **none of which touch the network**. There is still no
+- `tests/test_exhibit_render.py` — appended exhibits render through the same
+  `edgar.documents` parser as the primary, not edgartools' `Attachment.text()`,
+  whose legacy parser drops any `<h1>`-`<h6>` it does not read as a short
+  title. DFIN credit agreements put whole sections inside `<h2>` ✅
+- 85 tests, all passing, **none of which touch the network**. There is still no
   coverage of a real SEC response, and no CI — nothing runs the suite on push —
   and `make lint` cannot run because mypy and ruff are absent from the dev
   dependencies.
