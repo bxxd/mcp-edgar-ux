@@ -760,23 +760,34 @@ class EdgarAdapter(FilingFetcher):
         # Append exhibits (critical for 8-Ks where Exhibit 99.1 has the actual data)
         if include_exhibits:
             try:
-                for exhibit in edgar_filing.exhibits:
-                    if exhibit.document_type.startswith('EX-'):
-                        ex_text = _exhibit_text(exhibit) if format != "html" else exhibit.content
-                        if ex_text:
-                            separator = "\n\n" + "=" * 70 + "\n"
-                            separator += f"EXHIBIT: {exhibit.document_type} ({exhibit.document})\n"
-                            separator += "=" * 70 + "\n\n"
-                            content += separator + ex_text
+                exhibits = [e for e in edgar_filing.exhibits if e.document_type.startswith('EX-')]
             except Exception as e:
                 # The primary document in hand beats an error, but this must not
                 # be silent: the caller is about to be told the exhibits are
                 # included when they are not.
                 logger.warning(
-                    f"Exhibit append failed for {filing.form_type} "
+                    f"Exhibit list failed for {filing.form_type} "
                     f"{filing.accession_number}: {e} — returning the primary "
                     f"document without exhibits"
                 )
+                exhibits = []
+            for exhibit in exhibits:
+                separator = "\n\n" + "=" * 70 + "\n"
+                separator += f"EXHIBIT: {exhibit.document_type} ({exhibit.document})\n"
+                separator += "=" * 70 + "\n\n"
+                try:
+                    ex_text = _exhibit_text(exhibit) if format != "html" else exhibit.content
+                except Exception as e:
+                    # One exhibit that won't render must not cost the ones after it.
+                    # Say so in the text, where the reader will see the gap.
+                    logger.warning(
+                        f"Exhibit {exhibit.document_type} ({exhibit.document}) failed to "
+                        f"render for {filing.form_type} {filing.accession_number}: {e}"
+                    )
+                    content += separator + f"[Exhibit not rendered: {type(e).__name__}: {e}]\n"
+                    continue
+                if ex_text:
+                    content += separator + ex_text
 
         if format == "text":
             content = _wrap_prose(content)
