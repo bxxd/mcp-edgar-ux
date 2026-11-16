@@ -24,6 +24,8 @@ from .adapters.mcp import TOOL_SCHEMAS, MCPHandlers
 from .formatters import (
     format_fetch_filing,
     format_search_filing,
+    format_read,
+    format_grep,
     format_list_filings,
     format_list_documents,
     format_financial_statements,
@@ -75,6 +77,8 @@ async def list_tools() -> list[Tool]:
     return [
         Tool(**TOOL_SCHEMAS["fetch_filing"]),
         Tool(**TOOL_SCHEMAS["search_filing"]),
+        Tool(**TOOL_SCHEMAS["read"]),
+        Tool(**TOOL_SCHEMAS["grep"]),
         Tool(**TOOL_SCHEMAS["list_filings"]),
         Tool(**TOOL_SCHEMAS["list_documents"]),
         Tool(**TOOL_SCHEMAS["thirteenf_holdings"]),
@@ -98,6 +102,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     formatters = {
         "fetch_filing": format_fetch_filing,
         "search_filing": format_search_filing,
+        "read": format_read,
+        "grep": format_grep,
         "list_filings": format_list_filings,
         "list_documents": format_list_documents,
         "thirteenf_holdings": format_thirteenf_holdings,
@@ -136,6 +142,22 @@ async def _dispatch_tool(name: str, arguments: dict[str, Any]) -> Any:
             pattern=arguments["pattern"],
             date=arguments.get("date"),
             format=arguments.get("format", "text"),
+            context_lines=arguments.get("context_lines", 2),
+            max_results=arguments.get("max_results", 20),
+            offset=arguments.get("offset", 0)
+        )
+
+    elif name == "read":
+        return await handlers.read(
+            path=arguments["path"],
+            offset=arguments.get("offset", 1),
+            limit=arguments.get("limit", 200)
+        )
+
+    elif name == "grep":
+        return await handlers.grep(
+            pattern=arguments["pattern"],
+            path=arguments["path"],
             context_lines=arguments.get("context_lines", 2),
             max_results=arguments.get("max_results", 20),
             offset=arguments.get("offset", 0)

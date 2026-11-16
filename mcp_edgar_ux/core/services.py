@@ -14,8 +14,12 @@ from edgar import Company
 from .domain import (
     Filing,
     FilingContent,
+    FileMatches,
+    FileSlice,
     FilingDocument,
+    GrepResult,
     InsiderFiling,
+    SearchMatch,
     SearchResult,
     CachedFiling,
     ThirteenFReport,
@@ -259,6 +263,113 @@ class SearchFilingService:
             matches=matches,
             total_matches=total_count,
             file_path=cached_path
+        )
+
+
+READ_DEFAULT_LINES = 200
+READ_MAX_LINES = 2000
+MAX_LINE_CHARS = 2000      # same clip as Claude's Read tool
+GREP_MAX_FILES = 1000      # a folder bigger than this is too broad to mean anything
+EVERY_MATCH = 1_000_000    # per-file search is uncapped; grep pages across all files
+
+
+def _clip(line: str) -> str:
+    if len(line) <= MAX_LINE_CHARS:
+        return line
+    return f"{line[:MAX_LINE_CHARS]} … [+{len(line) - MAX_LINE_CHARS:,} chars]"
+
+
+def _clip_match(m: SearchMatch) -> SearchMatch:
+    """Raw-HTML documents can be one 300 KB line; a match carries it whole otherwise."""
+    return SearchMatch(
+        line_number=m.line_number,
+        line_content=_clip(m.line_content),
+        context_before=[_clip(c) for c in m.context_before],
+        context_after=[_clip(c) for c in m.context_after],
+    )
+
+
+class ReadFileService:
+    """Use case: read a window of lines from a cached file, addressed by path.
+
+    The cache lives on this server. Agents elsewhere (another host, a walled
+    container) get a path back from fetch_filing but cannot open it, so the
+    server reads it for them.
+    """
+
+    def __init__(self, repository: FilingRepository, searcher: FilingSearcher):
+        self.repository = repository
+        self.searcher = searcher
+
+    def execute(self, path: str, offset: int = 1, limit: int = READ_DEFAULT_LINES) -> FileSlice:
+        file_path = self.repository.resolve(path)
+        if file_path.is_dir():
+            raise IsADirectoryError(
+                f"{path} is a folder: read() takes one file, grep(pattern, path) searches a folder"
+            )
+        start_line = max(1, offset)
+        limit = min(max(1, limit), READ_MAX_LINES)
+        lines, total = self.searcher.read(file_path, start_line, limit)
+        return FileSlice(
+            path=file_path,
+            start_line=start_line,
+            lines=[_clip(line) for line in lines],
+            total_lines=total,
+        )
+
+
+class GrepService:
+    """Use case: search one cached file, or every cached file under a folder.
+
+    Searches only what is on disk. It never fetches: a folder grep is a sweep
+    of what has been cached, and search_filing() is the verb that auto-fetches.
+    """
+
+    def __init__(self, repository: FilingRepository, searcher: FilingSearcher):
+        self.repository = repository
+        self.searcher = searcher
+
+    def execute(
+        self,
+        pattern: str,
+        path: str,
+        context_lines: int = 2,
+        max_results: int = 20,
+        offset: int = 0
+    ) -> GrepResult:
+        root = self.repository.resolve(path)
+        files = self.repository.files_under(root)
+        if len(files) > GREP_MAX_FILES:
+            raise ValueError(
+                f"{path or 'the cache root'} holds {len(files):,} cached files; narrow it to a ticker "
+                f"or form folder (at most {GREP_MAX_FILES:,})"
+            )
+
+        hits = []   # (file, match) in file order, newest file first
+        files_matched = 0
+        for file_path in files:
+            matches, total = self.searcher.search(
+                file_path, pattern, context_lines, max_results=EVERY_MATCH, offset=0
+            )
+            if total:
+                files_matched += 1
+                hits.extend((file_path, _clip_match(m)) for m in matches)
+
+        page = hits[offset:offset + max_results]
+        grouped: list[FileMatches] = []
+        for file_path, match in page:
+            if not grouped or grouped[-1].path != file_path:
+                grouped.append(FileMatches(path=file_path, matches=[]))
+            grouped[-1].matches.append(match)
+
+        return GrepResult(
+            pattern=pattern,
+            root=root,
+            is_folder=root.is_dir(),
+            files=grouped,
+            total_matches=len(hits),
+            files_searched=len(files),
+            files_matched=files_matched,
         )
 
 

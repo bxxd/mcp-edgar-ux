@@ -9,7 +9,7 @@ Used by both stdio and HTTP/SSE servers.
 TOOL_SCHEMAS = {
     "fetch_filing": {
         "name": "fetch_filing",
-        "description": """Download SEC filing to disk. Returns path for Read/Grep/search_filing.
+        "description": """Download SEC filing to the server's cache. Returns its PATH — the key for read(path) and grep(pattern, path).
 
 fetch_filing("TSLA", "10-K") → {path: ".../TSLA/10-K/2024-01-29.txt", cached: true}
 fetch_filing("MP", "4", format="xml") → raw XML (lossless: 10b5-1 checkbox, footnotes)
@@ -106,6 +106,78 @@ search_filing("LNG", "10-Q", "Corpus|Stage 3") → OR patterns with |
                 }
             },
             "required": ["ticker", "form_type", "pattern"]
+        }
+    },
+    "read": {
+        "name": "read",
+        "description": """Read lines of a cached filing by PATH (the path fetch_filing, search_filing and list_filings return).
+
+read(path) → first 200 lines, numbered
+read(path, offset=1049, limit=50) → lines 1049-1098 (offset = a line number from search_filing/grep)
+
+The cache lives on the server, so read() works from any host — no local file access needed.
+Up to 2,000 lines per call; a line over 2,000 chars is clipped.
+""",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Path as returned by fetch_filing/search_filing/list_filings (absolute, or relative to the cache root)"
+                },
+                "offset": {
+                    "type": "integer",
+                    "description": "Line number to start at (1-based)",
+                    "default": 1
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Number of lines to return (max 2000)",
+                    "default": 200
+                }
+            },
+            "required": ["path"]
+        }
+    },
+    "grep": {
+        "name": "grep",
+        "description": """Search cached filings by PATH — one filing, or a folder of them. Extended regex, case-insensitive, whole-word, fuzzy=1.
+
+grep("sovereign", path) → matches in one filing, with line numbers + context
+grep("Corpus|Stage 3", "/var/idio-mcp-cache/sec-filings/LNG/10-Q") → every cached LNG 10-Q
+grep("tariff", "NVDA") → every cached NVDA filing (paths may be relative to the cache root)
+
+A folder grep sees only filings already fetched — a filing not yet cached is not
+searched. To search a specific filing that may not be cached, use search_filing (it auto-fetches).
+""",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "pattern": {
+                    "type": "string",
+                    "description": "Search pattern (extended regex, case-insensitive, fuzzy=1). Use | for OR"
+                },
+                "path": {
+                    "type": "string",
+                    "description": "A cached file or folder: absolute as returned by the other tools, or relative to the cache root (e.g. 'NVDA', 'NVDA/10-Q')"
+                },
+                "context_lines": {
+                    "type": "integer",
+                    "description": "Lines of context before/after each match",
+                    "default": 2
+                },
+                "max_results": {
+                    "type": "integer",
+                    "description": "Maximum matches to return",
+                    "default": 20
+                },
+                "offset": {
+                    "type": "integer",
+                    "description": "Skip first N matches (pagination)",
+                    "default": 0
+                }
+            },
+            "required": ["pattern", "path"]
         }
     },
     "list_filings": {
