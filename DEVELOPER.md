@@ -31,9 +31,10 @@ fetch_filing("TSLA", "10-K", "2024-01-29")
 search_filing("TSLA", "10-K", "supply chain")
 → Shows all "supply chain" mentions with line numbers and context
 
-# 4. Deep Dive (use Read/Grep/Bash tools on cached path)
-Read(path, offset=648, limit=50)
-Grep("rare earth", path=cached_path)
+# 4. Deep Dive (like Read / Grep — served by this server, keyed by path)
+read(path, offset=648, limit=50)
+grep("rare earth", path)          # one filing
+grep("rare earth", "MP")          # every cached MP filing
 ```
 
 ---
@@ -139,7 +140,7 @@ viewer output (`IDEA: XBRL DOCUMENT`), or packaging (`GRAPHIC`/`CSS`/`JS`/
 `JSON`/`ZIP`/`EXCEL`). Verified against real accessions: a 10-K's 12 extras and
 an 8-K's 44 extras are all silent; a 13F's information table always fires.
 
-### MCP Tools (7 tools)
+### MCP Tools (9 tools)
 
 **1. `list_filings(ticker, form_type, since=None)` - DISCOVERY**
 - Shows available filings (both cached + available from SEC)
@@ -195,6 +196,20 @@ an 8-K's 44 extras are all silent; a 13F's information table always fires.
 - Pattern syntax: Extended regex (use `|` for OR, case-insensitive)
 - Auto-downloads if not cached
 - Returns: Matches with line numbers + context
+
+**3a. `read(path, offset=1, limit=200)` / `grep(pattern, path)` - THE CACHE, BY PATH**
+- The path every other tool returns is the key. The cache lives on this server,
+  so an agent on another host (or a walled container) gets a path it cannot
+  open; these two verbs read it for them. `Read(path)` was the old hint and
+  only ever worked on the server's own host
+- `read`: 1-based `offset` (a line number from `search_filing`/`grep`), up to
+  2,000 lines a call, lines clipped at 2,000 chars
+- `grep`: a file or a folder (`NVDA`, `NVDA/10-Q`, or absolute), same ugrep
+  flags as `search_filing`, files newest first, paged across files. A folder
+  grep sees only what is cached and says so — it never fetches; at most 1,000
+  files per call
+- Paths may be absolute or relative to the cache root. Anything that resolves
+  outside the root (`..`, another absolute path, a symlink out) is refused
 
 **4. `get_financial_statements(ticker, statement_type="all")` - SIMPLIFIED FINANCIALS**
 - Returns key GAAP metrics (Revenue, Net Income, Assets, Cash Flow, etc.)
@@ -381,13 +396,13 @@ CACHE_DIR=/tmp/sec-filings-test ./cli fetch TSLA 10-K
 
 **MCP Integration**: Complete ✅
 - HTTP/SSE server (170 lines, port 5012 dev / 5002 prod)
-- Seven tools: fetch_filing, search_filing, list_filings, list_documents,
-  thirteenf_holdings, get_financial_statements, insider_activity
+- Nine tools: fetch_filing, search_filing, read, grep, list_filings,
+  list_documents, thirteenf_holdings, get_financial_statements, insider_activity
 - Shared tool definitions (DRY)
 - BBG Lite formatted output
 
 **CLI**: Complete ✅
-- Commands: list-tools, fetch, search, list-filings, documents, holdings, insider, financials
+- Commands: list-tools, fetch, search, read, grep, list-filings, documents, holdings, insider, financials
 - Uses same hexagonal core as MCP server
 - Fast iteration without server restart
 
@@ -408,11 +423,14 @@ CACHE_DIR=/tmp/sec-filings-test ./cli fetch TSLA 10-K
   for: an original is not shadowed by a newer amendment, edgartools aliases
   (`N-PORT` → `NPORT-P`) still resolve, CORE/ALL resolve across members, and a
   miss names the related forms ✅
+- `tests/test_read_grep.py` — `read`/`grep` by path against the real cache
+  and ugrep: windows, caps, clipping, newest-first folder sweeps, paging, and
+  every way out of the cache root refused (needs `ugrep`) ✅
 - `tests/test_exhibit_render.py` — appended exhibits render through the same
   `edgar.documents` parser as the primary, not edgartools' `Attachment.text()`,
   whose legacy parser drops any `<h1>`-`<h6>` it does not read as a short
   title. DFIN credit agreements put whole sections inside `<h2>` ✅
-- 64 tests, all passing, **none of which touch the network**. There is still no
+- 85 tests, all passing, **none of which touch the network**. There is still no
   coverage of a real SEC response, and no CI — nothing runs the suite on push —
   and `make lint` cannot run because mypy and ruff are absent from the dev
   dependencies.

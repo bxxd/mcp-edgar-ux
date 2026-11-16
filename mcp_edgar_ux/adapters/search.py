@@ -83,6 +83,17 @@ class GrepSearcher(FilingSearcher):
         except (subprocess.TimeoutExpired, ValueError) as e:
             raise RuntimeError(f"Failed to count lines: {e}")
 
+    def read(self, file_path: Path, start_line: int, limit: int) -> tuple[list[str], int]:
+        """Read `limit` lines from 1-based `start_line`, return (lines, total_count)"""
+        end_line = start_line + limit
+        lines = []
+        total = 0
+        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+            for total, line in enumerate(f, 1):
+                if start_line <= total < end_line:
+                    lines.append(line.rstrip('\r\n'))
+        return lines, total
+
     def read_preview(self, file_path: Path, num_lines: int) -> tuple[list[str], int]:
         """Read first N lines with line numbers, return (lines, total_count)"""
         total_lines = self.count_lines(file_path)

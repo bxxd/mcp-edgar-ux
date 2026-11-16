@@ -117,11 +117,12 @@ Configure Claude Code to use SSE transport:
 fetch_filing("TSLA", "10-K")
 → {path: "/var/idio-mcp-cache/sec-filings/TSLA/10-K/2025-04-30.txt", ...}
 
-# Read what you need
-Read("/var/idio-mcp-cache/sec-filings/TSLA/10-K/2025-04-30.txt", offset=1200, limit=50)
+# Read what you need — the path is the key, served over MCP from any host
+read("/var/idio-mcp-cache/sec-filings/TSLA/10-K/2025-04-30.txt", offset=1200, limit=50)
 
-# Search for terms
-Grep("supply chain", path="/var/idio-mcp-cache/sec-filings/TSLA/10-K/2025-04-30.txt")
+# Search one filing, or every cached filing under a folder
+grep("supply chain", "/var/idio-mcp-cache/sec-filings/TSLA/10-K/2025-04-30.txt")
+grep("supply chain", "TSLA")
 ```
 
 ## Tools
@@ -356,7 +357,7 @@ SIZE:        427 KB (10,234 lines)
 
 PATH: /var/idio-mcp-cache/sec-filings/TSLA/10-K/2025-04-30.txt
 
-Try: Read(path, offset=0, limit=50) | search_filing("TSLA", "10-K", "SEARCH TERM")
+Try: read(path, offset=1, limit=50) | search_filing("TSLA", "10-K", "SEARCH TERM")
 ```
 
 Clean, formatted, immediately useful. No raw JSON dumps, no 241K tokens in context.
@@ -401,7 +402,7 @@ search_filing("TSLA", "10-K", "supply chain")
 → Shows matches with line numbers and context
 
 # 3. Read specific section
-Read("/var/idio-mcp-cache/sec-filings/TSLA/10-K/2025-04-30.txt", offset=1200, limit=50)
+read("/var/idio-mcp-cache/sec-filings/TSLA/10-K/2025-04-30.txt", offset=1200, limit=50)
 → Only 50 lines in context (not 241K tokens)
 
 # 4. Analyze
