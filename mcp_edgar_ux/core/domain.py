@@ -157,3 +157,32 @@ class SearchResult:
     matches: list[SearchMatch]
     total_matches: int
     file_path: Path
+
+
+@dataclass
+class FileSlice:
+    """A window of lines read from a cached file, addressed by path"""
+    path: Path
+    start_line: int     # 1-based line number of lines[0]
+    lines: list[str]
+    total_lines: int
+
+
+@dataclass
+class FileMatches:
+    """Matches within one file of a grep"""
+    path: Path
+    matches: list[SearchMatch]
+
+
+@dataclass
+class GrepResult:
+    """Results from grepping a cached file or a folder of them"""
+    pattern: str
+    root: Path
+    is_folder: bool
+    files: list[FileMatches]    # this page of matches, grouped by file
+    total_matches: int
+    files_searched: int
+    files_matched: int
+

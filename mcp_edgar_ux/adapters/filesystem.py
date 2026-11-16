@@ -3,6 +3,7 @@ Filesystem Cache Adapter
 
 Implements FilingRepository port using local filesystem.
 """
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -163,6 +164,39 @@ class FilesystemCache(FilingRepository):
                         total += file_path.stat().st_size
         return total
 
+    def resolve(self, path: str) -> Path:
+        """Resolve a caller's path to a file or folder inside the cache.
+
+        Path is the key: fetch_filing, search_filing and list_filings all hand
+        one back, and read()/grep() take it. The cache lives on this server, so
+        a remote agent cannot open it itself. Anything that resolves outside
+        the cache root (../, an absolute path elsewhere, a symlink out) is
+        refused, so these verbs read filings and nothing else on the host.
+        """
+        root = self.cache_dir.resolve()
+        raw = Path(path.strip())
+        candidate = (raw if raw.is_absolute() else root / raw).resolve()
+        if not candidate.is_relative_to(root):
+            raise ValueError(f"path is outside the filing cache ({self.cache_dir}): {path}")
+        if not candidate.exists():
+            raise FileNotFoundError(
+                f"not in the cache: {path} (fetch_filing() or search_filing() downloads it)"
+            )
+        return candidate
+
+    def files_under(self, path: Path) -> list[Path]:
+        """Every text file at or under path, newest first.
+
+        Every cached file carries its filing date — in its own name, or in
+        its accession folder's name for a named document — so files sort by
+        that date across form folders. Binary files (images riding along in
+        an accession) are skipped: they have no lines to match.
+        """
+        if path.is_file():
+            return [path]
+        files = [f for f in path.rglob('*') if f.is_file() and not _is_binary(f)]
+        return sorted(files, key=_newest_first_key, reverse=True)
+
     def exists(
         self,
         ticker: str,
@@ -176,3 +210,24 @@ class FilesystemCache(FilingRepository):
             ticker, form_type, filing_date, accession_number, format
         )
         return path.exists()
+
+
+def _is_binary(path: Path) -> bool:
+    """A NUL byte in the first 8 KB marks a file as binary (grep's own rule)."""
+    try:
+        with open(path, 'rb') as f:
+            return b'\0' in f.read(8192)
+    except OSError:
+        return True
+
+
+# Anchored to the start of a path component: an accession number
+# (0001045810-26-000075) holds a date-shaped run of its own.
+_FILING_DATE = re.compile(r"(?:^|/)(\d{4}-\d{2}-\d{2})")
+
+
+def _newest_first_key(path: Path) -> tuple[str, str]:
+    """(filing date, path): the date that starts the last dated path component."""
+    dates = _FILING_DATE.findall(str(path))
+    return (dates[-1] if dates else "", str(path))
+

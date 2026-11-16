@@ -199,6 +199,69 @@ class MCPHandlers:
                 "error": f"Failed to get 13F holdings for {ticker}: {str(e)}"
             }
 
+    async def read(self, path: str, offset: int = 1, limit: int = 200) -> dict[str, Any]:
+        """Read a window of lines from a cached file, by path"""
+        try:
+            sl = await asyncio.to_thread(
+                self.container.read_file.execute, path=path, offset=offset, limit=limit
+            )
+            return {
+                "success": True,
+                "path": str(sl.path),
+                "start_line": sl.start_line,
+                "lines": sl.lines,
+                "total_lines": sl.total_lines,
+            }
+        except Exception as e:
+            return {"success": False, "error": f"read failed: {e}"}
+
+    async def grep(
+        self,
+        pattern: str,
+        path: str,
+        context_lines: int = 2,
+        max_results: int = 20,
+        offset: int = 0
+    ) -> dict[str, Any]:
+        """Search a cached file, or every cached file under a folder"""
+        try:
+            result = await asyncio.to_thread(
+                self.container.grep.execute,
+                pattern=pattern,
+                path=path,
+                context_lines=context_lines,
+                max_results=max_results,
+                offset=offset
+            )
+            return {
+                "success": True,
+                "pattern": result.pattern,
+                "path": str(result.root),
+                "is_folder": result.is_folder,
+                "files": [
+                    {
+                        "path": str(fm.path),
+                        "matches": [
+                            {
+                                "line_number": m.line_number,
+                                "line": m.line_content,
+                                "context_before": m.context_before,
+                                "context_after": m.context_after
+                            }
+                            for m in fm.matches
+                        ],
+                    }
+                    for fm in result.files
+                ],
+                "match_count": result.total_matches,
+                "files_searched": result.files_searched,
+                "files_matched": result.files_matched,
+                "offset": offset,
+                "max_results": max_results,
+            }
+        except Exception as e:
+            return {"success": False, "error": f"grep failed: {e}"}
+
     async def search_filing(
         self,
         ticker: str,

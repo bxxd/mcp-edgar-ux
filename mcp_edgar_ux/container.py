@@ -11,6 +11,8 @@ from .core import (
     ListFilingsService,
     ListDocumentsService,
     SearchFilingService,
+    ReadFileService,
+    GrepService,
     FinancialStatementsService,
     InsiderActivityService,
     ThirteenFService
@@ -44,6 +46,10 @@ class Container:
             searcher=self.searcher,
             fetch_service=self.fetch_filing
         )
+
+        self.read_file = ReadFileService(repository=self.cache, searcher=self.searcher)
+
+        self.grep = GrepService(repository=self.cache, searcher=self.searcher)
 
         self.list_documents = ListDocumentsService(fetcher=self.fetcher)
 

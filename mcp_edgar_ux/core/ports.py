@@ -51,6 +51,21 @@ class FilingRepository(ABC):
         pass
 
     @abstractmethod
+    def resolve(self, path: str) -> Path:
+        """Resolve a caller-supplied path to a file or folder inside the cache.
+
+        The path is the key every tool hands back. Relative paths are taken
+        from the cache root. Raises ValueError for anything outside the cache
+        and FileNotFoundError for a path that is not (yet) cached.
+        """
+        pass
+
+    @abstractmethod
+    def files_under(self, path: Path) -> list[Path]:
+        """Every text file at or under a resolved path, newest first"""
+        pass
+
+    @abstractmethod
     def exists(
         self,
         ticker: str,
@@ -137,6 +152,11 @@ class FilingSearcher(ABC):
     @abstractmethod
     def count_lines(self, file_path: Path) -> int:
         """Count total lines in file"""
+        pass
+
+    @abstractmethod
+    def read(self, file_path: Path, start_line: int, limit: int) -> tuple[list[str], int]:
+        """Read `limit` lines from 1-based `start_line`, return (lines, total_count)"""
         pass
 
     @abstractmethod

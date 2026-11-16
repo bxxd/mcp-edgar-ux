@@ -37,7 +37,7 @@ def format_fetch_filing(result: dict[str, Any]) -> str:
 
         PATH: /var/idio-mcp-cache/sec-filings/TSLA/10-K/2025-04-30.txt
 
-        Try: Read(path, offset=0, limit=50) | search_filing("TSLA", "10-K", "SEARCH TERM")
+        Try: read(path, offset=1, limit=50) | search_filing("TSLA", "10-K", "SEARCH TERM")
     """
     if not result.get("success"):
         return f"ERROR: {result.get('error', 'Unknown error')}"
@@ -97,7 +97,7 @@ def format_fetch_filing(result: dict[str, Any]) -> str:
 
     # Affordances
     lines.append("")
-    lines.append(f'Try: Read(path, offset=0, limit=50) | search_filing("{meta["ticker"]}", "{meta["form_type"]}", "SEARCH TERM")')
+    lines.append(f'Try: read(path, offset=1, limit=50) | search_filing("{meta["ticker"]}", "{meta["form_type"]}", "SEARCH TERM")')
 
     return "\n".join(lines)
 
@@ -219,6 +219,116 @@ def format_thirteenf_holdings(result: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _format_matches(matches: list[dict[str, Any]]) -> list[str]:
+    """Matches with numbered context, a blank line between each."""
+    lines: list[str] = []
+    for i, match in enumerate(matches, 1):
+        if i > 1:
+            lines.append("")  # Blank line between matches
+
+        line_num = match['line_number']
+        context_before = match.get('context_before', [])
+        context_after = match.get('context_after', [])
+
+        # Context before (with calculated line numbers)
+        for j, ctx_line in enumerate(context_before):
+            ctx_line_num = line_num - len(context_before) + j
+            lines.append(f"  {ctx_line_num:>4}: {ctx_line}")
+
+        # Matching line
+        lines.append(f"  {line_num:>4}: {match['line']}")
+
+        # Context after (with calculated line numbers)
+        for j, ctx_line in enumerate(context_after, 1):
+            ctx_line_num = line_num + j
+            lines.append(f"  {ctx_line_num:>4}: {ctx_line}")
+    return lines
+
+
+def format_read(result: dict[str, Any]) -> str:
+    """Format read result as BBG Lite text.
+
+    Example output:
+        READ /var/idio-mcp-cache/sec-filings/NVDA/10-Q/2026-08-26-0001045810-26-000075.txt
+        LINES 1049-1051 of 4,026
+        ──────────────────────────────────────────────────────────────────────
+          1049\tAI cloud agreements – We have partnered with leading AI clouds ...
+          1050\taccess to our AI infrastructure to serve AI startups, model builders,
+          1051\tenterprises, research organizations and sovereign customers. Under these
+        ──────────────────────────────────────────────────────────────────────
+        More: read(path, offset=1052, limit=3) | grep("PATTERN", path)
+    """
+    if not result.get("success"):
+        return f"ERROR: {result.get('error', 'Unknown error')}"
+
+    path = result['path']
+    start = result['start_line']
+    body = result['lines']
+    total = result['total_lines']
+    end = start + len(body) - 1
+
+    lines = [f"READ {path}"]
+    if not body:
+        lines.append(f"PAST END — the file has {total:,} lines")
+        lines.append("")
+        lines.append('Try: read(path, offset=1) | grep("PATTERN", path)')
+        return "\n".join(lines)
+
+    lines.append(f"LINES {start:,}-{end:,} of {total:,}")
+    lines.append("─" * 70)
+    lines.extend(f"{n:>6}\t{text}" for n, text in enumerate(body, start))
+    lines.append("─" * 70)
+    if end < total:
+        lines.append(f'More: read(path, offset={end + 1}, limit={len(body)}) | grep("PATTERN", path)')
+    else:
+        lines.append('END OF FILE | grep("PATTERN", path)')
+    return "\n".join(lines)
+
+
+def format_grep(result: dict[str, Any]) -> str:
+    """Format grep result as BBG Lite text — search_filing's layout, one block per file."""
+    if not result.get("success"):
+        return f"ERROR: {result.get('error', 'Unknown error')}"
+
+    pattern = result['pattern']
+    match_count = result['match_count']
+    offset = result.get('offset', 0)
+    files_searched = result['files_searched']
+    scope = (
+        f"{files_searched:,} cached file{'s' if files_searched != 1 else ''} searched, "
+        f"{result['files_matched']:,} matched"
+        if result['is_folder'] else "1 file"
+    )
+
+    lines = [f'GREP "{pattern}" | {result["path"]}', f"SCOPE: {scope}", ""]
+
+    if match_count == 0:
+        lines.append("NO MATCHES FOUND")
+    else:
+        returned = sum(len(f['matches']) for f in result['files'])
+        if match_count > returned:
+            range_str = f" (showing {offset + 1}-{offset + returned})"
+        else:
+            range_str = ""
+        lines.append(f"MATCHES ({match_count} found{range_str})")
+        lines.append("─" * 70)
+        for i, f in enumerate(result['files']):
+            if i:
+                lines.append("")
+            if result['is_folder']:
+                lines.append(f"FILE: {f['path']}")
+            lines.extend(_format_matches(f['matches']))
+        lines.append("─" * 70)
+
+    if result['is_folder']:
+        lines.append("Cached filings only — a filing not yet fetched was not searched (search_filing auto-fetches).")
+    if match_count > offset + sum(len(f['matches']) for f in result['files']):
+        lines.append(f'More: grep(..., offset={offset + result["max_results"]}) | read(path, offset=LINE, limit=50)')
+    else:
+        lines.append('Try: read(path, offset=LINE, limit=50) | grep("OTHER", path)')
+    return "\n".join(lines)
+
+
 def format_search_filing(result: dict[str, Any]) -> str:
     """Format search_filing result as BBG Lite text.
 
@@ -234,7 +344,7 @@ def format_search_filing(result: dict[str, Any]) -> str:
           2457: more context
 
         PATH: /var/idio-mcp-cache/sec-filings/TSLA/10-K/2025-04-30.txt
-        Try: Read(path, offset=LINE, limit=50) | search_filing(..., pattern="OTHER")
+        Try: read(path, offset=LINE, limit=50) | search_filing(..., pattern="OTHER")
     """
     if not result.get("success"):
         return f"ERROR: {result.get('error', 'Unknown error')}"
@@ -252,7 +362,7 @@ def format_search_filing(result: dict[str, Any]) -> str:
 NO MATCHES FOUND
 
 PATH: {file_path}
-Try: Different search term | Read(path) for full filing
+Try: Different search term | read(path) for the full filing
 """
 
     lines = []
@@ -277,36 +387,16 @@ Try: Different search term | Read(path) for full filing
     lines.append(f"MATCHES ({match_count} found{range_str})")
     lines.append("─" * 70)
 
-    # Format each match with line numbers
-    for i, match in enumerate(result['matches'], 1):
-        if i > 1:
-            lines.append("")  # Blank line between matches
-
-        line_num = match['line_number']
-        context_before = match.get('context_before', [])
-        context_after = match.get('context_after', [])
-
-        # Context before (with calculated line numbers)
-        for j, ctx_line in enumerate(context_before):
-            ctx_line_num = line_num - len(context_before) + j
-            lines.append(f"  {ctx_line_num:>4}: {ctx_line}")
-
-        # Matching line
-        lines.append(f"  {line_num:>4}: {match['line']}")
-
-        # Context after (with calculated line numbers)
-        for j, ctx_line in enumerate(context_after, 1):
-            ctx_line_num = line_num + j
-            lines.append(f"  {ctx_line_num:>4}: {ctx_line}")
+    lines.extend(_format_matches(result['matches']))
 
     lines.append("")
     lines.append(f"PATH: {file_path}")
 
     # Navigation hints
     if match_count > returned:
-        lines.append(f'More: search_filing(..., max_results={match_count}) | Read(path, offset=LINE, limit=50)')
+        lines.append(f'More: search_filing(..., max_results={match_count}) | read(path, offset=LINE, limit=50)')
     else:
-        lines.append(f'Try: Read(path, offset=LINE, limit=50) | search_filing(..., pattern="OTHER")')
+        lines.append(f'Try: read(path, offset=LINE, limit=50) | search_filing(..., pattern="OTHER")')
 
     return "\n".join(lines)
 
@@ -475,7 +565,7 @@ def format_list_filings(result: dict[str, Any]) -> str:
     lines.append(f"Showing {start + 1}-{start + len(filings_to_show)} of {total_count} filings ({result['cached_count']} cached)")
     lines.append("")
     lines.append(f"Try: fetch_filing(ticker, form, date) | search_filing(ticker, form, pattern)")
-    lines.append(f"     Read(path) to read cached filing directly")
+    lines.append(f"     read(path) to read a cached filing | grep(pattern, path) to search cached filings")
 
     return "\n".join(lines)
 
