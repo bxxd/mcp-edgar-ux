@@ -8,6 +8,8 @@ Usage:
   ./cli fetch TSLA 10-K --date 2024-01-01 # Fetch specific date
   ./cli fetch TSLA 10-K --format markdown # Fetch as markdown
   ./cli search TSLA 10-K "supply chain"   # Search within filing
+  ./cli read PATH --offset 1049 --limit 50 # Read lines of a cached filing by path
+  ./cli grep "tariff" NVDA/10-Q           # Search a cached file or folder by path
   ./cli list-filings 10-K                 # List latest 10-K filings across all companies
   ./cli list-filings 10-K --ticker TSLA   # List available TSLA 10-K filings
   ./cli list-filings CORE --since 2026-06-05T16:15:00  # Accepted at/after timestamp (ET)
@@ -35,6 +37,8 @@ from .adapters.mcp import TOOL_SCHEMAS, MCPHandlers
 from .formatters import (
     format_fetch_filing,
     format_search_filing,
+    format_read,
+    format_grep,
     format_list_filings,
     format_list_documents,
     format_financial_statements,
@@ -288,6 +292,27 @@ async def holdings_command(
         return 1
 
 
+async def read_command(path: str, offset: int, limit: int, cache_dir: str) -> int:
+    """Read lines of a cached file by path"""
+    container = Container(cache_dir=cache_dir, user_agent=get_user_agent())
+    result = await MCPHandlers(container).read(path=path, offset=offset, limit=limit)
+    print(format_read(result))
+    return 0 if result["success"] else 1
+
+
+async def grep_command(
+    pattern: str, path: str, context_lines: int, max_results: int, offset: int, cache_dir: str
+) -> int:
+    """Search a cached file or folder by path"""
+    container = Container(cache_dir=cache_dir, user_agent=get_user_agent())
+    result = await MCPHandlers(container).grep(
+        pattern=pattern, path=path, context_lines=context_lines,
+        max_results=max_results, offset=offset
+    )
+    print(format_grep(result))
+    return 0 if result["success"] else 1
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="edgar-ux CLI - Test MCP tools without server restart"
@@ -339,6 +364,20 @@ def main():
     list_filings_parser.add_argument("form_type", help="Form type (e.g., 10-K)")
     list_filings_parser.add_argument("--ticker", help="Optional stock ticker (e.g., TSLA). Omit to see latest filings across all companies.")
     list_filings_parser.add_argument("--since", help="ISO timestamp filter on acceptance time (naive = US/Eastern)")
+
+    # read command
+    read_parser = subparsers.add_parser("read", help="Read lines of a cached file by path")
+    read_parser.add_argument("path", help="Path as returned by fetch/search (or relative to the cache root)")
+    read_parser.add_argument("--offset", type=int, default=1, help="Line number to start at (default: 1)")
+    read_parser.add_argument("--limit", type=int, default=200, help="Lines to return (default: 200, max 2000)")
+
+    # grep command
+    grep_parser = subparsers.add_parser("grep", help="Search a cached file or folder by path")
+    grep_parser.add_argument("pattern", help="Search pattern (regex, case-insensitive, fuzzy=1)")
+    grep_parser.add_argument("path", help="Cached file or folder (e.g. NVDA, NVDA/10-Q, or an absolute path)")
+    grep_parser.add_argument("--context", type=int, default=2, help="Context lines (default: 2)")
+    grep_parser.add_argument("--max", type=int, default=20, help="Max matches (default: 20)")
+    grep_parser.add_argument("--offset", type=int, default=0, help="Skip first N matches")
 
     # documents command
     documents_parser = subparsers.add_parser("documents", help="List documents in a filing's accession")
@@ -393,6 +432,15 @@ def main():
             context_lines=args.context,
             max_results=args.max,
             cache_dir=args.cache_dir
+        ))
+    elif args.command == "read":
+        return asyncio.run(read_command(
+            path=args.path, offset=args.offset, limit=args.limit, cache_dir=args.cache_dir
+        ))
+    elif args.command == "grep":
+        return asyncio.run(grep_command(
+            pattern=args.pattern, path=args.path, context_lines=args.context,
+            max_results=args.max, offset=args.offset, cache_dir=args.cache_dir
         ))
     elif args.command == "list-filings":
         return asyncio.run(list_filings_command(
